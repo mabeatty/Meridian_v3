@@ -32,16 +32,14 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { context } = await req.json()
+  const { context, mealType } = await req.json()
 
-  // Get nutrition profile
   const { data: profile } = await supabase
     .from('nutrition_profiles')
     .select('*')
     .eq('user_id', user.id)
     .single()
 
-  // Get latest Whoop data
   const { data: latestHealth } = await supabase
     .from('health_metrics')
     .select('recovery_score, strain, sleep_hours')
@@ -50,7 +48,6 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .single()
 
-  // Get liked recipes to avoid repetition
   const { data: likedRecipes } = await supabase
     .from('recipes')
     .select('name, rating')
@@ -86,6 +83,10 @@ Today's Whoop data:
     ? `Previously liked recipes (suggest similar styles): ${likedRecipes.map(r => r.name).join(', ')}`
     : ''
 
+  const mealTypeInstruction = mealType
+    ? `ALL 3 recipes must be ${mealType} recipes. Do not generate recipes for any other meal type.`
+    : 'Generate balanced meal recipes.'
+
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -107,21 +108,23 @@ ${likedContext}
 
 Additional context from user: ${context || 'None'}
 
-Generate exactly 3 recipes tailored to this person. Consider their recovery score and strain when choosing meal types and calorie density. High strain days need more carbs and calories. Low recovery days benefit from anti-inflammatory foods.
+${mealTypeInstruction}
+
+Generate exactly 3 recipes tailored to this person. Consider their recovery score and strain when choosing calorie density. High strain days need more carbs and calories. Low recovery days benefit from anti-inflammatory foods.
 
 Return ONLY a JSON array of 3 recipe objects. Each object must have exactly these fields:
 - "name": string
 - "description": string (1-2 sentences, why this fits their goals)
-- "meal_type": array of strings (from: "breakfast", "lunch", "dinner", "snack")
+- "meal_type": array containing only "${mealType || 'dinner'}"
 - "servings": number
-- "instructions": string (step by step, separated by newlines)
+- "instructions": string (numbered steps separated by newlines)
 - "tags": array of strings (e.g. "high-protein", "anti-inflammatory", "quick")
 - "ingredients": array of objects, each with:
   - "name": string (specific ingredient name for USDA lookup)
   - "quantity": number
   - "unit": string (e.g. "g", "oz", "cup", "tbsp")
 
-Be specific with ingredient names for accurate USDA database lookup. Use common ingredient names.`
+Be specific with ingredient names for accurate USDA database lookup.`
         }],
       }),
     })
@@ -131,14 +134,12 @@ Be specific with ingredient names for accurate USDA database lookup. Use common 
     const clean = text.replace(/```json|```/g, '').trim()
     const recipes = JSON.parse(clean)
 
-    // Look up USDA data for each ingredient
     const recipesWithMacros = await Promise.all(recipes.map(async (recipe: any) => {
       const ingredientsWithMacros = await Promise.all(
         recipe.ingredients.map(async (ing: any) => {
           const usda = await lookupUSDA(ing.name)
           if (!usda) return { ...ing, calories: 0, protein: 0, carbs: 0, fat: 0 }
 
-          // Scale to quantity (USDA data is per 100g)
           const scale = ing.unit === 'g' ? ing.quantity / 100
             : ing.unit === 'oz' ? (ing.quantity * 28.35) / 100
             : ing.unit === 'cup' ? (ing.quantity * 240) / 100

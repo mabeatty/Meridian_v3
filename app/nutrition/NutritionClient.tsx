@@ -71,7 +71,7 @@ function StarRating({ rating, onRate }: { rating: number | null; onRate: (r: num
       {[1, 2, 3, 4, 5].map(n => (
         <button
           key={n}
-          onClick={() => onRate(n)}
+          onClick={e => { e.stopPropagation(); onRate(n) }}
           className={`text-base transition-colors ${n <= (rating ?? 0) ? 'text-accent-amber' : 'text-text-dim hover:text-accent-amber'}`}
         >
           ★
@@ -90,15 +90,12 @@ function RecipeCard({ recipe, onRate, onDelete }: {
 
   return (
     <div className="bg-surface-2 border border-border rounded-lg overflow-hidden">
-      <div
-        className="p-4 cursor-pointer hover:bg-surface-3 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <div className="p-4 cursor-pointer hover:bg-surface-3 transition-colors" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium text-text-primary">{recipe.name}</span>
-              {recipe.meal_type.map(t => (
+              {recipe.meal_type?.map(t => (
                 <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-3 text-text-tertiary capitalize">{t}</span>
               ))}
             </div>
@@ -106,7 +103,6 @@ function RecipeCard({ recipe, onRate, onDelete }: {
           </div>
           <span className="text-text-tertiary text-xs">{expanded ? '↑' : '↓'}</span>
         </div>
-
         <div className="flex items-center gap-2 mt-3">
           <MacroPill label="Cal" value={recipe.total_calories} unit="" color="#e8e8e8" />
           <MacroPill label="Protein" value={recipe.total_protein} unit="g" color="#4ade80" />
@@ -120,7 +116,6 @@ function RecipeCard({ recipe, onRate, onDelete }: {
 
       {expanded && (
         <div className="border-t border-border p-4 flex flex-col gap-3">
-          {/* Ingredients */}
           <div>
             <span className="widget-label">Ingredients ({recipe.servings} serving{recipe.servings > 1 ? 's' : ''})</span>
             <div className="mt-2 flex flex-col gap-1">
@@ -132,18 +127,14 @@ function RecipeCard({ recipe, onRate, onDelete }: {
               ))}
             </div>
           </div>
-
-          {/* Instructions */}
           <div>
             <span className="widget-label">Instructions</span>
             <div className="mt-2 flex flex-col gap-1">
-              {recipe.instructions.split('\n').filter(Boolean).map((step, i) => (
+              {recipe.instructions?.split('\n').filter(Boolean).map((step, i) => (
                 <p key={i} className="text-xs text-text-secondary leading-relaxed">{step}</p>
               ))}
             </div>
           </div>
-
-          {/* Tags */}
           {recipe.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {recipe.tags.map(tag => (
@@ -151,11 +142,7 @@ function RecipeCard({ recipe, onRate, onDelete }: {
               ))}
             </div>
           )}
-
-          <button
-            onClick={() => onDelete(recipe.id)}
-            className="text-xs text-accent-red hover:text-accent-red/80 w-fit"
-          >
+          <button onClick={() => onDelete(recipe.id)} className="text-xs text-accent-red hover:text-accent-red/80 w-fit">
             Delete recipe
           </button>
         </div>
@@ -179,15 +166,15 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 }) {
   const [recipes, setRecipes] = useState(initialRecipes)
   const [profile, setProfile] = useState<NutritionProfile>(initialProfile ?? EMPTY_PROFILE)
-  const [activeTab, setActiveTab] = useState<'recipes' | 'meal-plan' | 'profile'>('recipes')
+  const [hasProfile, setHasProfile] = useState(!!initialProfile)
   const [showProfile, setShowProfile] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generatedRecipes, setGeneratedRecipes] = useState<any[]>([])
   const [context, setContext] = useState('')
+  const [mealType, setMealType] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
 
-  // Profile array field helpers
   const [conditionInput, setConditionInput] = useState('')
   const [restrictionInput, setRestrictionInput] = useState('')
   const [lovedInput, setLovedInput] = useState('')
@@ -209,6 +196,7 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile),
     })
+    setHasProfile(true)
     setProfileSaved(true)
     setTimeout(() => setProfileSaved(false), 2000)
     setSavingProfile(false)
@@ -220,9 +208,8 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
     const res = await fetch('/api/nutrition/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context }),
+      body: JSON.stringify({ context, mealType }),
     }).then(r => r.json())
-
     if (res.data) setGeneratedRecipes(res.data)
     setGenerating(false)
   }
@@ -234,7 +221,6 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...recipeData, ingredients }),
     }).then(r => r.json())
-
     if (res.data) {
       setRecipes(prev => [{ ...res.data, recipe_ingredients: ingredients }, ...prev])
       setGeneratedRecipes(prev => prev.filter(r => r.name !== recipe.name))
@@ -264,15 +250,13 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
           <h2 className="text-text-primary font-medium">Nutrition</h2>
           <p className="text-text-tertiary text-xs mt-0.5">{recipes.length} recipes in your library</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowProfile(true)} className="btn-connect">
-            {initialProfile ? 'edit profile' : 'set up profile'}
-          </button>
-        </div>
+        <button onClick={() => setShowProfile(true)} className="btn-connect">
+          {hasProfile ? 'edit profile' : 'set up profile'}
+        </button>
       </div>
 
       {/* No profile warning */}
-      {!initialProfile && (
+      {!hasProfile && (
         <div className="bg-surface-2 border border-accent-amber/30 rounded-lg px-4 py-3 text-xs text-accent-amber">
           Set up your nutrition profile first so Claude can generate personalized recipes for you.
         </div>
@@ -281,10 +265,26 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       {/* Generate recipes */}
       <div className="bg-surface-2 border border-border rounded-lg p-4 flex flex-col gap-3">
         <span className="widget-label">Generate recipes</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-text-tertiary">Meal type:</span>
+          {['breakfast', 'lunch', 'dinner', 'snack', 'meal prep'].map(t => (
+            <button
+              key={t}
+              onClick={() => setMealType(mealType === t ? '' : t)}
+              className={`text-xs px-3 py-1.5 rounded-md border transition-colors capitalize ${
+                mealType === t
+                  ? 'border-accent text-accent bg-accent/10'
+                  : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
         <textarea
           value={context}
           onChange={e => setContext(e.target.value)}
-          placeholder="Any additional context for this generation? e.g. 'I have a long run tomorrow', 'keeping it simple this week', 'craving something warm and savory'..."
+          placeholder="Any additional context? e.g. 'I have a long run tomorrow', 'keeping it simple this week', 'craving something warm and savory'..."
           rows={3}
           className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
                      placeholder:text-text-tertiary focus:outline-none focus:border-border-strong
@@ -292,14 +292,14 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
         />
         <button
           onClick={generateRecipes}
-          disabled={generating}
+          disabled={generating || !mealType}
           className="btn-primary w-fit"
         >
-          {generating ? 'Generating recipes...' : 'Generate 3 recipes'}
+          {generating ? 'Generating...' : mealType ? `Generate 3 ${mealType} recipes` : 'Select a meal type first'}
         </button>
       </div>
 
-      {/* Generated recipes — pending save */}
+      {/* Generated recipes */}
       {generatedRecipes.length > 0 && (
         <div className="flex flex-col gap-3">
           <span className="widget-label">Generated — save what you want</span>
@@ -316,14 +316,12 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
                   <p className="text-xs text-text-tertiary mt-0.5">{recipe.description}</p>
                 </div>
               </div>
-
               <div className="flex items-center gap-2">
                 <MacroPill label="Cal" value={recipe.total_calories} unit="" color="#e8e8e8" />
                 <MacroPill label="Protein" value={recipe.total_protein} unit="g" color="#4ade80" />
                 <MacroPill label="Carbs" value={recipe.total_carbs} unit="g" color="#60a5fa" />
                 <MacroPill label="Fat" value={recipe.total_fat} unit="g" color="#fbbf24" />
               </div>
-
               <div>
                 <span className="widget-label">Ingredients</span>
                 <div className="mt-1.5 flex flex-col gap-1">
@@ -335,11 +333,8 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
                   ))}
                 </div>
               </div>
-
               <div className="flex items-center gap-3">
-                <button onClick={() => saveRecipe(recipe)} className="btn-primary">
-                  Save recipe
-                </button>
+                <button onClick={() => saveRecipe(recipe)} className="btn-primary">Save recipe</button>
                 <button
                   onClick={() => setGeneratedRecipes(prev => prev.filter((_, idx) => idx !== i))}
                   className="text-xs text-text-tertiary hover:text-text-secondary"
@@ -357,20 +352,15 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
         <div className="flex flex-col gap-3">
           <span className="widget-label">Recipe library ({recipes.length})</span>
           {recipes.map(recipe => (
-            <RecipeCard
-              key={recipe.id}
-              recipe={recipe}
-              onRate={rateRecipe}
-              onDelete={deleteRecipe}
-            />
+            <RecipeCard key={recipe.id} recipe={recipe} onRate={rateRecipe} onDelete={deleteRecipe} />
           ))}
         </div>
       )}
 
-      {recipes.length === 0 && !generating && (
+      {recipes.length === 0 && !generating && generatedRecipes.length === 0 && (
         <div className="flex flex-col items-center justify-center h-32 gap-2">
           <span className="text-text-tertiary text-sm">No recipes yet</span>
-          <span className="text-text-dim text-xs">Generate some recipes above to get started</span>
+          <span className="text-text-dim text-xs">Select a meal type above and generate recipes to get started</span>
         </div>
       )}
 
@@ -385,13 +375,13 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Height (inches)', key: 'height_inches', type: 'number', placeholder: '70' },
-                { label: 'Weight (lbs)', key: 'weight_lbs', type: 'number', placeholder: '180' },
-                { label: 'Body fat %', key: 'body_fat_pct', type: 'number', placeholder: '15' },
-                { label: 'Target calories', key: 'target_calories', type: 'number', placeholder: '2400' },
-                { label: 'Target protein (g)', key: 'target_protein', type: 'number', placeholder: '180' },
-                { label: 'Target carbs (g)', key: 'target_carbs', type: 'number', placeholder: '250' },
-                { label: 'Target fat (g)', key: 'target_fat', type: 'number', placeholder: '80' },
+                { label: 'Height (inches)', key: 'height_inches', placeholder: '70' },
+                { label: 'Weight (lbs)', key: 'weight_lbs', placeholder: '180' },
+                { label: 'Body fat %', key: 'body_fat_pct', placeholder: '15' },
+                { label: 'Target calories', key: 'target_calories', placeholder: '2400' },
+                { label: 'Target protein (g)', key: 'target_protein', placeholder: '180' },
+                { label: 'Target carbs (g)', key: 'target_carbs', placeholder: '250' },
+                { label: 'Target fat (g)', key: 'target_fat', placeholder: '80' },
               ].map(f => (
                 <div key={f.key} className="flex flex-col gap-1">
                   <label className="widget-label">{f.label}</label>
@@ -447,7 +437,6 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
               />
             </div>
 
-            {/* Array fields */}
             {[
               { label: 'Health conditions', field: 'health_conditions' as keyof NutritionProfile, input: conditionInput, setInput: setConditionInput, placeholder: 'e.g. ADHD, hypertension' },
               { label: 'Dietary restrictions', field: 'dietary_restrictions' as keyof NutritionProfile, input: restrictionInput, setInput: setRestrictionInput, placeholder: 'e.g. no dairy, gluten-free' },
