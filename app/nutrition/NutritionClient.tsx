@@ -323,11 +323,11 @@ function RecipeCard({ recipe, onAdd }: {
 
         {expanded && (
           <div className="mt-3 flex flex-col gap-2 border-t border-border pt-2">
-            <p className="text-[11px] text-text-secondary">{recipe.description}</p>
+            <p className="text-sm text-text-secondary">{recipe.description}</p>
             <div>
               <span className="widget-label">Ingredients</span>
               {recipe.ingredients.map((ing, i) => (
-                <div key={i} className="text-[11px] text-text-secondary mt-0.5">
+                <div key={i} className="text-sm text-text-secondary mt-0.5">
                   {ing.quantity} {ing.unit} {ing.name}
                 </div>
               ))}
@@ -335,7 +335,7 @@ function RecipeCard({ recipe, onAdd }: {
             <div>
               <span className="widget-label">Instructions</span>
               {recipe.instructions.split('\n').filter(Boolean).map((step, i) => (
-                <p key={i} className="text-[11px] text-text-secondary mt-0.5">{step}</p>
+                <p key={i} className="text-sm text-text-secondary mt-0.5">{step}</p>
               ))}
             </div>
           </div>
@@ -586,7 +586,7 @@ function PlannerGrid({ weekStart, entries, onRemove, onCellClick }: {
                 onClick={() => !entry && onCellClick(day, meal)}>
                 {entry ? (
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[11px] text-text-primary leading-snug font-medium">{entry.recipes.name}</span>
+                    <span className="text-sm text-text-primary leading-snug font-medium">{entry.recipes.name}</span>
                     <span className="text-[9px] text-text-tertiary font-mono">
                       {Math.round(entry.recipes.total_calories * entry.servings)} cal · {entry.servings}srv
                     </span>
@@ -645,7 +645,7 @@ function NutritionSummary({ entries, profile }: {
         <span className="widget-label">Nutrition Summary</span>
       </div>
       <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-[11px]">
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
               <th className="text-left px-3 py-2 text-text-tertiary font-normal w-16">Day</th>
@@ -676,7 +676,7 @@ function NutritionSummary({ entries, profile }: {
           </tbody>
           <tfoot>
             <tr className="border-t border-border-strong bg-surface-3">
-              <td className="px-3 py-2 text-text-tertiary text-[10px] uppercase tracking-wider">Avg</td>
+              <td className="px-3 py-2 text-text-tertiary text-xs uppercase tracking-wider">Avg</td>
               <td className="px-2 py-2 text-right font-mono text-text-primary">{weeklyAvg.calories || '—'}</td>
               <td className="px-2 py-2 text-right font-mono text-accent">{weeklyAvg.protein || '—'}</td>
               <td className="px-2 py-2 text-right font-mono text-accent-blue">{weeklyAvg.carbs || '—'}</td>
@@ -684,7 +684,7 @@ function NutritionSummary({ entries, profile }: {
             </tr>
             {profile?.target_calories && (
               <tr className="border-t border-border">
-                <td className="px-3 py-2 text-text-tertiary text-[10px] uppercase tracking-wider">Target</td>
+                <td className="px-3 py-2 text-text-tertiary text-xs uppercase tracking-wider">Target</td>
                 <td className="px-2 py-2 text-right font-mono text-text-dim">{profile.target_calories}</td>
                 <td className="px-2 py-2 text-right font-mono text-text-dim">{profile.target_protein}</td>
                 <td className="px-2 py-2 text-right font-mono text-text-dim">{profile.target_carbs}</td>
@@ -733,14 +733,14 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
             </div>
             {recipeEntries.map(entry => (
               <div key={entry.id} className="flex items-center justify-between py-1">
-                <span className="text-[11px] text-text-secondary capitalize">
+                <span className="text-sm text-text-secondary capitalize">
                   {entry.day_of_week.slice(0, 3)} · {entry.meal_type}
                 </span>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <button onClick={() => onUpdateServings(entry.id, Math.max(1, entry.servings - 1))}
                       className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4 transition-colors">−</button>
-                    <span className="text-[11px] font-mono text-text-primary w-4 text-center">{entry.servings}</span>
+                    <span className="text-sm font-mono text-text-primary w-4 text-center">{entry.servings}</span>
                     <button onClick={() => onUpdateServings(entry.id, entry.servings + 1)}
                       className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4 transition-colors">+</button>
                   </div>
@@ -1059,7 +1059,7 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       </div>
 
       {/* Bottom panels */}
-      <div className="grid grid-cols-3 gap-4" style={{ height: '500px' }}>
+      <div className="grid grid-cols-3 gap-4" style={{ height: '700px' }}>
         <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} />
         <NutritionSummary entries={plannerEntries} profile={profile} />
         <div className="flex flex-col gap-4 min-h-0">
