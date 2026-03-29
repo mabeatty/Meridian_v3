@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body { height: 100%; background: #0f0f0f; color: #e8e8e8; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+
+@layer components {
+  .widget-card { @apply bg-surface-2 border border-border rounded-lg p-4 flex flex-col gap-3; }
+  .widget-label { @apply text-[10px] font-semibold tracking-[0.12em] uppercase text-text-tertiary; }
+  .widget-empty { @apply text-text-tertiary text-sm font-mono; }
+  .nav-item { @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm text-text-secondary hover:text-text-primary hover:bg-surface-3 transition-all duration-150 cursor-pointer select-none; }
+  .nav-item.active { @apply text-text-primary bg-surface-3; }
+  .btn-connect { @apply inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-surface-3 border border-border text-text-secondary hover:border-border-strong hover:text-text-primary transition-all duration-150 cursor-pointer; }
+  .btn-primary { @apply inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-text-primary text-surface font-medium hover:bg-text-secondary transition-all duration-150 cursor-pointer; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 25%, #222222 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.font-clock { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
