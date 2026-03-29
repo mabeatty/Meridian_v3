@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { WidgetCard, WidgetSkeleton } from './WidgetCard'
+import { RefreshCw } from 'lucide-react'
 
 function Ring({ score, max = 100, color, label }: { score: number; max?: number; color: string; label: string }) {
-  const pct = Math.min(score / max, 1)
-  const r = 18, circ = 2 * Math.PI * r, dash = pct * circ
+  const r = 18, circ = 2 * Math.PI * r, dash = (Math.min(score / max, 1)) * circ
   return (
     <div className="flex flex-col items-center gap-1">
       <svg width="48" height="48" viewBox="0 0 48 48">
@@ -26,21 +26,43 @@ function recoveryColor(score: number) {
   return '#f87171'
 }
 
+async function syncAndLoad() {
+  await fetch('/api/health/sync', { method: 'POST' }).catch(() => {})
+  const res = await fetch('/api/health').then(r => r.json())
+  return res.data
+}
+
 export function HealthWidget() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    fetch('/api/health').then(r => r.json()).then(res => setData(res.data)).finally(() => setLoading(false))
+    syncAndLoad().then(setData).finally(() => setLoading(false))
   }, [])
+
+  async function refresh() {
+    setRefreshing(true)
+    const fresh = await syncAndLoad()
+    setData(fresh)
+    setRefreshing(false)
+  }
 
   const latest = data?.latest
   const trend = data?.trend_7d
 
   return (
-    <WidgetCard label="Health" action={
-      <a href="/health" className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors">view all →</a>
-    }>
+    <WidgetCard
+      label="Health"
+      action={
+        <div className="flex items-center gap-2">
+          <button onClick={refresh} disabled={refreshing} className="text-text-tertiary hover:text-text-secondary transition-colors">
+            <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+          <a href="/health" className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors">view all →</a>
+        </div>
+      }
+    >
       {loading && <WidgetSkeleton rows={4} />}
 
       {!loading && !latest && (
@@ -52,7 +74,6 @@ export function HealthWidget() {
 
       {!loading && latest && (
         <div className="flex flex-col gap-3">
-          {/* Three rings */}
           <div className="flex items-center justify-around pt-1">
             {latest.recovery_score !== null && (
               <Ring score={latest.recovery_score} color={recoveryColor(latest.recovery_score)} label="Recovery" />
@@ -65,7 +86,6 @@ export function HealthWidget() {
             )}
           </div>
 
-          {/* Stats */}
           <div className="flex flex-col divide-y divide-border">
             {[
               { label: 'HRV', val: latest.hrv ? Math.round(latest.hrv) : null, unit: 'ms', sub: trend?.avg_hrv ? `avg ${trend.avg_hrv}` : null },
