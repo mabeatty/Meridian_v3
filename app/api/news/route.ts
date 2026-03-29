@@ -21,7 +21,8 @@ export async function GET() {
   for (const r of results) {
     if (r.status !== 'fulfilled') continue
     const { feed, xml } = r.value
-    for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const matches = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g))
+for (const m of matches) {
       const item = m[1]
       const title = item.match(/<title><!\[CDATA\[(.*?)\]\]>/)?.[1] || item.match(/<title>(.*?)<\/title>/)?.[1] || ''
       const link = item.match(/<link>(.*?)<\/link>/)?.[1] || item.match(/<guid>(https?:\/\/[^<]+)<\/guid>/)?.[1] || ''
