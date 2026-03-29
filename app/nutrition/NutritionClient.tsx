@@ -1,54 +1,77 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { format, addDays, startOfWeek } from 'date-fns'
 
-interface NutritionProfile {
-  height_inches: number | null
-  weight_lbs: number | null
-  body_fat_pct: number | null
-  goal: string | null
-  activity_baseline: string | null
-  health_conditions: string[]
-  dietary_restrictions: string[]
-  foods_loved: string[]
-  foods_avoided: string[]
-  weekly_context: string | null
-  target_calories: number | null
-  target_protein: number | null
-  target_carbs: number | null
-  target_fat: number | null
+// ─── Types ───────────────────────────────────────────────────
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  recipes?: GeneratedRecipe[]
 }
 
-interface Recipe {
-  id: string
+interface GeneratedRecipe {
   name: string
   description: string
   meal_type: string[]
   servings: number
   instructions: string
-  total_calories: number
-  total_protein: number
-  total_carbs: number
-  total_fat: number
-  rating: number | null
   tags: string[]
-  recipe_ingredients: Ingredient[]
+  ingredients: { name: string; quantity: number; unit: string }[]
+  estimated_calories: number
+  estimated_protein: number
+  estimated_carbs: number
+  estimated_fat: number
+  id?: string // set after saving to library
 }
 
-interface Ingredient {
+interface PlannerEntry {
+  id: string
+  day_of_week: string
+  meal_type: string
+  servings: number
+  recipes: {
+    id: string
+    name: string
+    total_calories: number
+    total_protein: number
+    total_carbs: number
+    total_fat: number
+    recipe_ingredients: any[]
+  }
+}
+
+interface GroceryItem {
+  id: string
   name: string
-  quantity: number
-  unit: string
-  calories: number
-  protein: number
-  carbs: number
-  fat: number
+  quantity: number | null
+  unit: string | null
+  category: string
+  checked: boolean
+  custom: boolean
+}
+
+interface NutritionProfile {
+  target_calories: number | null
+  target_protein: number | null
+  target_carbs: number | null
+  target_fat: number | null
+  goal: string | null
+}
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snack']
+const CATEGORIES = ['Produce', 'Protein', 'Dairy', 'Grains', 'Pantry', 'Frozen', 'Other']
+
+function getWeekStart(date: Date): string {
+  const d = startOfWeek(date, { weekStartsOn: 0 })
+  return format(d, 'yyyy-MM-dd')
 }
 
 function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface-2 border border-border rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-surface-2 border border-border rounded-xl max-w-xl w-full max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         {children}
       </div>
@@ -56,430 +79,915 @@ function Modal({ onClose, children }: { onClose: () => void; children: React.Rea
   )
 }
 
-function MacroPill({ label, value, unit, color }: { label: string; value: number; unit: string; color: string }) {
+// ─── Chat Panel ───────────────────────────────────────────────
+function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
+  weekStart: string
+  onRecipeAdd: (recipe: GeneratedRecipe, day: string, meal: string, servings: number) => void
+  plannerEntries: PlannerEntry[]
+}) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(true)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch(`/api/nutrition/chat?week_start=${weekStart}`)
+      .then(r => r.json())
+      .then(res => {
+        const msgs = (res.messages ?? []).filter((m: any) => m.role === 'user' || m.role === 'assistant')
+        // Parse recipes from assistant messages
+        const parsed = msgs.map((m: any) => {
+          if (m.role === 'assistant') {
+            const match = m.content.match(/<recipes>([\s\S]*?)<\/recipes>/)
+            let recipes = null
+            let content = m.content
+            if (match) {
+              try { recipes = JSON.parse(match[1].trim()) } catch {}
+              content = m.content.replace(/<recipes>[\s\S]*?<\/recipes>/, '').trim()
+            }
+            return { ...m, content, recipes }
+          }
+          return m
+        })
+        setMessages(parsed)
+      })
+      .finally(() => setLoadingHistory(false))
+  }, [weekStart])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  async function send() {
+    if (!input.trim() || loading) return
+    const userMsg: Message = { role: 'user', content: input }
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+    setLoading(true)
+
+    const history = messages.map(m => ({ role: m.role, content: m.content }))
+
+    const res = await fetch('/api/nutrition/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: input, week_start: weekStart, history }),
+    }).then(r => r.json())
+
+    const assistantMsg: Message = {
+      role: 'assistant',
+      content: res.text ?? '',
+      recipes: res.recipes ?? undefined,
+    }
+    setMessages(prev => [...prev, assistantMsg])
+    setLoading(false)
+  }
+
   return (
-    <div className="flex flex-col items-center bg-surface-3 rounded-md px-3 py-2">
-      <span className="text-sm font-mono font-medium" style={{ color }}>{Math.round(value)}{unit}</span>
-      <span className="text-[10px] text-text-tertiary mt-0.5">{label}</span>
+    <div className="flex flex-col h-full bg-surface-2 border border-border rounded-lg overflow-hidden">
+      <div className="px-4 py-3 border-b border-border flex-shrink-0">
+        <span className="widget-label">Nutrition Assistant</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        {loadingHistory && <div className="text-xs text-text-tertiary text-center">Loading conversation...</div>}
+
+        {!loadingHistory && messages.length === 0 && (
+          <div className="text-xs text-text-tertiary text-center py-4">
+            Start by telling me what you need — "generate 3 high protein dinners for meal prep" or "what should I eat today given my recovery score?"
+          </div>
+        )}
+
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`max-w-[90%] px-3 py-2 rounded-lg text-xs leading-relaxed ${
+              msg.role === 'user'
+                ? 'bg-accent/10 text-text-primary border border-accent/20'
+                : 'bg-surface-3 text-text-primary'
+            }`}>
+              {msg.content}
+            </div>
+
+            {msg.recipes && msg.recipes.map((recipe, j) => (
+              <RecipeCard
+                key={j}
+                recipe={recipe}
+                weekStart={weekStart}
+                onAdd={onRecipeAdd}
+                plannerEntries={plannerEntries}
+              />
+            ))}
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex items-start gap-2">
+            <div className="bg-surface-3 px-3 py-2 rounded-lg text-xs text-text-tertiary">
+              Thinking...
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="px-3 py-3 border-t border-border flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
+            placeholder="Ask for recipes, meal ideas, adjustments..."
+            className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-xs text-text-primary
+                       placeholder:text-text-tertiary focus:outline-none focus:border-border-strong"
+          />
+          <button
+            onClick={send}
+            disabled={loading || !input.trim()}
+            className="btn-primary px-3 py-2 text-xs"
+          >
+            Send
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
 
-function StarRating({ rating, onRate }: { rating: number | null; onRate: (r: number) => void }) {
+// ─── Recipe Card in Chat ──────────────────────────────────────
+function RecipeCard({ recipe, weekStart, onAdd, plannerEntries }: {
+  recipe: GeneratedRecipe
+  weekStart: string
+  onAdd: (recipe: GeneratedRecipe, day: string, meal: string, servings: number) => void
+  plannerEntries: PlannerEntry[]
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedDay, setSelectedDay] = useState(DAYS[0])
+  const [selectedMeal, setSelectedMeal] = useState(recipe.meal_type?.[0] ?? 'dinner')
+  const [servings, setServings] = useState(recipe.servings ?? 1)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [rating, setRating] = useState(0)
+  const [ratingSubmitted, setRatingSubmitted] = useState(false)
+
+  async function saveToLibrary() {
+    setSaving(true)
+    await fetch('/api/nutrition/recipes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: recipe.name,
+        description: recipe.description,
+        meal_type: recipe.meal_type,
+        servings: recipe.servings,
+        instructions: recipe.instructions,
+        tags: recipe.tags,
+        total_calories: recipe.estimated_calories,
+        total_protein: recipe.estimated_protein,
+        total_carbs: recipe.estimated_carbs,
+        total_fat: recipe.estimated_fat,
+        ingredients: recipe.ingredients.map(ing => ({
+          ...ing, calories: 0, protein: 0, carbs: 0, fat: 0
+        })),
+      }),
+    })
+    setSaved(true)
+    setSaving(false)
+  }
+
+  async function submitRating(r: number) {
+    setRating(r)
+    await fetch('/api/nutrition/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipe_name: recipe.name, rating: r }),
+    })
+    setRatingSubmitted(true)
+  }
+
+  function handleAdd() {
+    onAdd(recipe, selectedDay, selectedMeal, servings)
+    setShowAddModal(false)
+  }
+
   return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => (
-        <button
-          key={n}
-          onClick={e => { e.stopPropagation(); onRate(n) }}
-          className={`text-base transition-colors ${n <= (rating ?? 0) ? 'text-accent-amber' : 'text-text-dim hover:text-accent-amber'}`}
-        >
-          ★
-        </button>
+    <div className="w-full bg-surface-2 border border-border rounded-lg overflow-hidden">
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-medium text-text-primary">{recipe.name}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-text-tertiary font-mono">{recipe.estimated_calories} cal</span>
+              <span className="text-[10px] text-accent font-mono">{recipe.estimated_protein}g P</span>
+              <span className="text-[10px] text-accent-blue font-mono">{recipe.estimated_carbs}g C</span>
+              <span className="text-[10px] text-accent-amber font-mono">{recipe.estimated_fat}g F</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-[10px] text-text-tertiary hover:text-text-secondary flex-shrink-0"
+          >
+            {expanded ? 'less' : 'expand'}
+          </button>
+        </div>
+
+        {expanded && (
+          <div className="mt-3 flex flex-col gap-2 border-t border-border pt-2">
+            <p className="text-[11px] text-text-secondary">{recipe.description}</p>
+            <div>
+              <span className="widget-label">Ingredients</span>
+              {recipe.ingredients.map((ing, i) => (
+                <div key={i} className="text-[11px] text-text-secondary mt-0.5">
+                  {ing.quantity} {ing.unit} {ing.name}
+                </div>
+              ))}
+            </div>
+            <div>
+              <span className="widget-label">Instructions</span>
+              {recipe.instructions.split('\n').filter(Boolean).map((step, i) => (
+                <p key={i} className="text-[11px] text-text-secondary mt-0.5">{step}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <button onClick={() => setShowAddModal(true)} className="btn-connect text-[10px] py-1 px-2">
+            + Add to planner
+          </button>
+          <button
+            onClick={saveToLibrary}
+            disabled={saving || saved}
+            className="btn-connect text-[10px] py-1 px-2"
+          >
+            {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save to library'}
+          </button>
+          {!ratingSubmitted ? (
+            <div className="flex items-center gap-0.5 ml-auto">
+              {[1,2,3,4,5].map(n => (
+                <button
+                  key={n}
+                  onClick={() => submitRating(n)}
+                  className="text-sm text-text-dim hover:text-accent-amber transition-colors"
+                >★</button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[10px] text-text-tertiary ml-auto">Rated {rating}/5 ✓</span>
+          )}
+        </div>
+      </div>
+
+      {showAddModal && (
+        <Modal onClose={() => setShowAddModal(false)}>
+          <div className="p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-text-primary text-sm font-medium">Add to planner</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-text-tertiary text-lg">×</button>
+            </div>
+            <p className="text-xs text-text-secondary font-medium">{recipe.name}</p>
+
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Day</label>
+              <div className="flex flex-wrap gap-1.5">
+                {DAYS.map(day => (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDay(day)}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+                      selectedDay === day
+                        ? 'border-accent text-accent bg-accent/10'
+                        : 'border-border text-text-tertiary hover:border-border-strong'
+                    }`}
+                  >
+                    {day.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Meal</label>
+              <div className="flex gap-1.5">
+                {MEALS.map(meal => (
+                  <button
+                    key={meal}
+                    onClick={() => setSelectedMeal(meal)}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors capitalize ${
+                      selectedMeal === meal
+                        ? 'border-accent text-accent bg-accent/10'
+                        : 'border-border text-text-tertiary hover:border-border-strong'
+                    }`}
+                  >
+                    {meal}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Servings</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setServings(Math.max(1, servings - 1))}
+                  className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors"
+                >−</button>
+                <span className="text-sm font-mono text-text-primary w-6 text-center">{servings}</span>
+                <button
+                  onClick={() => setServings(servings + 1)}
+                  className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors"
+                >+</button>
+              </div>
+            </div>
+
+            <button onClick={handleAdd} className="btn-primary">Add to planner</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+// ─── Weekly Planner Grid ──────────────────────────────────────
+function PlannerGrid({ weekStart, entries, onRemove, onCellClick }: {
+  weekStart: string
+  entries: PlannerEntry[]
+  onRemove: (id: string) => void
+  onCellClick: (day: string, meal: string) => void
+}) {
+  const weekDates = DAYS.map((_, i) => {
+    const d = new Date(weekStart + 'T12:00:00')
+    d.setDate(d.getDate() + i)
+    return d
+  })
+
+  function getEntry(day: string, meal: string) {
+    return entries.find(e => e.day_of_week === day && e.meal_type === meal)
+  }
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-8 border-b border-border">
+        <div className="px-3 py-2" />
+        {DAYS.map((day, i) => (
+          <div key={day} className="px-2 py-2 text-center border-l border-border">
+            <div className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">{day.slice(0, 3)}</div>
+            <div className="text-[10px] text-text-dim font-mono">{format(weekDates[i], 'M/d')}</div>
+          </div>
+        ))}
+      </div>
+
+      {MEALS.map(meal => (
+        <div key={meal} className="grid grid-cols-8 border-b border-border last:border-0">
+          <div className="px-3 py-3 flex items-center">
+            <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider capitalize">{meal}</span>
+          </div>
+          {DAYS.map(day => {
+            const entry = getEntry(day, meal)
+            return (
+              <div
+                key={day}
+                className="border-l border-border px-2 py-2 min-h-[60px] cursor-pointer hover:bg-surface-3 transition-colors"
+                onClick={() => !entry && onCellClick(day, meal)}
+              >
+                {entry ? (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-text-primary leading-snug font-medium">{entry.recipes.name}</span>
+                    <span className="text-[9px] text-text-tertiary font-mono">{entry.recipes.total_calories} cal · {entry.servings}srv</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); onRemove(entry.id) }}
+                      className="text-[9px] text-accent-red hover:text-accent-red/80 w-fit mt-0.5"
+                    >remove</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] text-text-tertiary">+ add</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       ))}
     </div>
   )
 }
 
-function RecipeCard({ recipe, onRate, onDelete }: {
-  recipe: Recipe
-  onRate: (id: string, rating: number) => void
-  onDelete: (id: string) => void
+// ─── Nutrition Summary Panel ──────────────────────────────────
+function NutritionSummary({ entries, profile }: {
+  entries: PlannerEntry[]
+  profile: NutritionProfile | null
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const dailyTotals = DAYS.map(day => {
+    const dayEntries = entries.filter(e => e.day_of_week === day)
+    return {
+      day,
+      calories: dayEntries.reduce((s, e) => s + (e.recipes.total_calories * e.servings), 0),
+      protein: dayEntries.reduce((s, e) => s + (e.recipes.total_protein * e.servings), 0),
+      carbs: dayEntries.reduce((s, e) => s + (e.recipes.total_carbs * e.servings), 0),
+      fat: dayEntries.reduce((s, e) => s + (e.recipes.total_fat * e.servings), 0),
+    }
+  })
+
+  const weeklyAvg = {
+    calories: Math.round(dailyTotals.reduce((s, d) => s + d.calories, 0) / 7),
+    protein: Math.round(dailyTotals.reduce((s, d) => s + d.protein, 0) / 7),
+    carbs: Math.round(dailyTotals.reduce((s, d) => s + d.carbs, 0) / 7),
+    fat: Math.round(dailyTotals.reduce((s, d) => s + d.fat, 0) / 7),
+  }
+
+  const target = {
+    calories: profile?.target_calories ?? null,
+    protein: profile?.target_protein ?? null,
+    carbs: profile?.target_carbs ?? null,
+    fat: profile?.target_fat ?? null,
+  }
+
+  function pctColor(val: number, tgt: number | null) {
+    if (!tgt) return 'text-text-secondary'
+    const pct = val / tgt
+    if (pct >= 0.9 && pct <= 1.1) return 'text-accent'
+    if (pct >= 0.75) return 'text-accent-amber'
+    return 'text-text-secondary'
+  }
 
   return (
-    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden">
-      <div className="p-4 cursor-pointer hover:bg-surface-3 transition-colors" onClick={() => setExpanded(!expanded)}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-text-primary">{recipe.name}</span>
-              {recipe.meal_type?.map(t => (
-                <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-3 text-text-tertiary capitalize">{t}</span>
-              ))}
-            </div>
-            <p className="text-xs text-text-tertiary mt-0.5 leading-snug">{recipe.description}</p>
-          </div>
-          <span className="text-text-tertiary text-xs">{expanded ? '↑' : '↓'}</span>
-        </div>
-        <div className="flex items-center gap-2 mt-3">
-          <MacroPill label="Cal" value={recipe.total_calories} unit="" color="#e8e8e8" />
-          <MacroPill label="Protein" value={recipe.total_protein} unit="g" color="#4ade80" />
-          <MacroPill label="Carbs" value={recipe.total_carbs} unit="g" color="#60a5fa" />
-          <MacroPill label="Fat" value={recipe.total_fat} unit="g" color="#fbbf24" />
-          <div className="ml-auto">
-            <StarRating rating={recipe.rating} onRate={r => onRate(recipe.id, r)} />
-          </div>
-        </div>
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col">
+      <div className="px-4 py-3 border-b border-border flex-shrink-0">
+        <span className="widget-label">Nutrition Summary</span>
       </div>
-
-      {expanded && (
-        <div className="border-t border-border p-4 flex flex-col gap-3">
-          <div>
-            <span className="widget-label">Ingredients ({recipe.servings} serving{recipe.servings > 1 ? 's' : ''})</span>
-            <div className="mt-2 flex flex-col gap-1">
-              {recipe.recipe_ingredients?.map((ing, i) => (
-                <div key={i} className="flex items-center justify-between text-xs">
-                  <span className="text-text-secondary">{ing.quantity} {ing.unit} {ing.name}</span>
-                  <span className="text-text-tertiary font-mono">{ing.calories} cal</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span className="widget-label">Instructions</span>
-            <div className="mt-2 flex flex-col gap-1">
-              {recipe.instructions?.split('\n').filter(Boolean).map((step, i) => (
-                <p key={i} className="text-xs text-text-secondary leading-relaxed">{step}</p>
-              ))}
-            </div>
-          </div>
-          {recipe.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {recipe.tags.map(tag => (
-                <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-surface-3 text-text-tertiary">{tag}</span>
-              ))}
-            </div>
-          )}
-          <button onClick={() => onDelete(recipe.id)} className="text-xs text-accent-red hover:text-accent-red/80 w-fit">
-            Delete recipe
-          </button>
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left px-3 py-2 text-text-tertiary font-normal">Day</th>
+              <th className="text-right px-2 py-2 text-text-tertiary font-normal">Cal</th>
+              <th className="text-right px-2 py-2 text-accent font-normal">P</th>
+              <th className="text-right px-2 py-2 text-accent-blue font-normal">C</th>
+              <th className="text-right px-2 py-2 text-accent-amber font-normal">F</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dailyTotals.map(d => (
+              <tr key={d.day} className="border-b border-border last:border-0 hover:bg-surface-3 transition-colors">
+                <td className="px-3 py-2 text-text-secondary">{d.day.slice(0, 3)}</td>
+                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.calories, target.calories)}`}>
+                  {d.calories > 0 ? Math.round(d.calories) : '—'}
+                </td>
+                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.protein, target.protein)}`}>
+                  {d.protein > 0 ? Math.round(d.protein) : '—'}
+                </td>
+                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.carbs, target.carbs)}`}>
+                  {d.carbs > 0 ? Math.round(d.carbs) : '—'}
+                </td>
+                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.fat, target.fat)}`}>
+                  {d.fat > 0 ? Math.round(d.fat) : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-border-strong bg-surface-3">
+              <td className="px-3 py-2 text-text-tertiary text-[10px] uppercase tracking-wider">Avg</td>
+              <td className="px-2 py-2 text-right font-mono text-text-primary">{weeklyAvg.calories || '—'}</td>
+              <td className="px-2 py-2 text-right font-mono text-accent">{weeklyAvg.protein || '—'}</td>
+              <td className="px-2 py-2 text-right font-mono text-accent-blue">{weeklyAvg.carbs || '—'}</td>
+              <td className="px-2 py-2 text-right font-mono text-accent-amber">{weeklyAvg.fat || '—'}</td>
+            </tr>
+            {target.calories && (
+              <tr className="border-t border-border">
+                <td className="px-3 py-2 text-text-tertiary text-[10px] uppercase tracking-wider">Target</td>
+                <td className="px-2 py-2 text-right font-mono text-text-dim">{target.calories}</td>
+                <td className="px-2 py-2 text-right font-mono text-text-dim">{target.protein}</td>
+                <td className="px-2 py-2 text-right font-mono text-text-dim">{target.carbs}</td>
+                <td className="px-2 py-2 text-right font-mono text-text-dim">{target.fat}</td>
+              </tr>
+            )}
+          </tfoot>
+        </table>
+      </div>
     </div>
   )
 }
 
-const EMPTY_PROFILE: NutritionProfile = {
-  height_inches: null, weight_lbs: null, body_fat_pct: null,
-  goal: 'maintain', activity_baseline: 'moderate',
-  health_conditions: [], dietary_restrictions: [],
-  foods_loved: [], foods_avoided: [],
-  weekly_context: null,
-  target_calories: null, target_protein: null, target_carbs: null, target_fat: null,
+// ─── Recipes Panel ────────────────────────────────────────────
+function RecipesPanel({ entries, onUpdateServings, onRemove }: {
+  entries: PlannerEntry[]
+  onUpdateServings: (id: string, servings: number) => void
+  onRemove: (id: string) => void
+}) {
+  const unique = entries.reduce((acc, entry) => {
+    const key = entry.recipes.id
+    if (!acc[key]) acc[key] = { recipe: entry.recipes, entries: [] }
+    acc[key].entries.push(entry)
+    return acc
+  }, {} as Record<string, { recipe: any; entries: PlannerEntry[] }>)
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col">
+      <div className="px-4 py-3 border-b border-border flex-shrink-0">
+        <span className="widget-label">This week's recipes</span>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {Object.keys(unique).length === 0 && (
+          <div className="px-4 py-6 text-xs text-text-tertiary text-center">
+            No recipes planned yet — use the chat to generate recipes
+          </div>
+        )}
+        {Object.values(unique).map(({ recipe, entries: recipeEntries }) => (
+          <div key={recipe.id} className="px-4 py-3 border-b border-border last:border-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-text-primary">{recipe.name}</span>
+              <div className="flex items-center gap-2 text-[10px] font-mono text-text-tertiary">
+                <span>{recipe.total_calories} cal</span>
+                <span className="text-accent">{recipe.total_protein}g P</span>
+              </div>
+            </div>
+            {recipeEntries.map(entry => (
+              <div key={entry.id} className="flex items-center justify-between py-1">
+                <span className="text-[11px] text-text-secondary capitalize">
+                  {entry.day_of_week.slice(0, 3)} · {entry.meal_type}
+                </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onUpdateServings(entry.id, Math.max(1, entry.servings - 1))}
+                      className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4 transition-colors"
+                    >−</button>
+                    <span className="text-[11px] font-mono text-text-primary w-4 text-center">{entry.servings}</span>
+                    <button
+                      onClick={() => onUpdateServings(entry.id, entry.servings + 1)}
+                      className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4 transition-colors"
+                    >+</button>
+                  </div>
+                  <button onClick={() => onRemove(entry.id)} className="text-[10px] text-accent-red hover:text-accent-red/80">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
-export function NutritionClient({ initialProfile, initialRecipes }: {
-  initialProfile: NutritionProfile | null
-  initialRecipes: Recipe[]
+// ─── Grocery List Panel ───────────────────────────────────────
+function GroceryPanel({ weekStart, entries }: {
+  weekStart: string
+  entries: PlannerEntry[]
 }) {
-  const [recipes, setRecipes] = useState(initialRecipes)
-  const [profile, setProfile] = useState<NutritionProfile>(initialProfile ?? EMPTY_PROFILE)
-  const [hasProfile, setHasProfile] = useState(!!initialProfile)
-  const [showProfile, setShowProfile] = useState(false)
+  const [items, setItems] = useState<GroceryItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
-  const [generatedRecipes, setGeneratedRecipes] = useState<any[]>([])
-  const [context, setContext] = useState('')
-  const [mealType, setMealType] = useState('')
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [profileSaved, setProfileSaved] = useState(false)
+  const [newItem, setNewItem] = useState('')
+  const [newCategory, setNewCategory] = useState('Other')
 
-  const [conditionInput, setConditionInput] = useState('')
-  const [restrictionInput, setRestrictionInput] = useState('')
-  const [lovedInput, setLovedInput] = useState('')
-  const [avoidedInput, setAvoidedInput] = useState('')
+  useEffect(() => {
+    fetch(`/api/nutrition/grocery?week_start=${weekStart}`)
+      .then(r => r.json())
+      .then(res => setItems(res.data ?? []))
+      .finally(() => setLoading(false))
+  }, [weekStart])
 
-  function addToArray(field: keyof NutritionProfile, value: string) {
-    if (!value.trim()) return
-    setProfile(p => ({ ...p, [field]: [...(p[field] as string[]), value.trim()] }))
-  }
-
-  function removeFromArray(field: keyof NutritionProfile, value: string) {
-    setProfile(p => ({ ...p, [field]: (p[field] as string[]).filter(v => v !== value) }))
-  }
-
-  async function saveProfile() {
-    setSavingProfile(true)
-    await fetch('/api/nutrition/profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profile),
-    })
-    setHasProfile(true)
-    setProfileSaved(true)
-    setTimeout(() => setProfileSaved(false), 2000)
-    setSavingProfile(false)
-    setShowProfile(false)
-  }
-
-  async function generateRecipes() {
+  async function generateList() {
     setGenerating(true)
-    const res = await fetch('/api/nutrition/generate', {
+
+    // Build items from planner entries
+    const ingredientMap: Record<string, { quantity: number; unit: string; category: string }> = {}
+
+    for (const entry of entries) {
+      const scale = entry.servings
+      for (const ing of entry.recipes.recipe_ingredients ?? []) {
+        const key = `${ing.name.toLowerCase()}::${ing.unit}`
+        if (ingredientMap[key]) {
+          ingredientMap[key].quantity += (ing.quantity ?? 0) * scale
+        } else {
+          ingredientMap[key] = {
+            quantity: (ing.quantity ?? 0) * scale,
+            unit: ing.unit ?? '',
+            category: categorize(ing.name),
+          }
+        }
+      }
+    }
+
+    const newItems = Object.entries(ingredientMap).map(([key, val]) => ({
+      name: key.split('::')[0],
+      quantity: Math.round(val.quantity * 10) / 10,
+      unit: val.unit,
+      category: val.category,
+      checked: false,
+      custom: false,
+    }))
+
+    const res = await fetch('/api/nutrition/grocery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context, mealType }),
+      body: JSON.stringify({ week_start: weekStart, items: newItems }),
     }).then(r => r.json())
-    if (res.data) setGeneratedRecipes(res.data)
+
+    setItems(res.data ?? [])
     setGenerating(false)
   }
 
-  async function saveRecipe(recipe: any) {
-    const { ingredients, ...recipeData } = recipe
-    const res = await fetch('/api/nutrition/recipes', {
+  function categorize(name: string): string {
+    const n = name.toLowerCase()
+    if (/chicken|beef|pork|fish|salmon|tuna|shrimp|turkey|egg/.test(n)) return 'Protein'
+    if (/milk|cheese|yogurt|butter|cream/.test(n)) return 'Dairy'
+    if (/rice|pasta|bread|oat|flour|quinoa/.test(n)) return 'Grains'
+    if (/lettuce|spinach|kale|carrot|broccoli|tomato|onion|garlic|pepper|apple|banana|berry/.test(n)) return 'Produce'
+    if (/frozen/.test(n)) return 'Frozen'
+    if (/oil|sauce|spice|salt|pepper|vinegar|soy/.test(n)) return 'Pantry'
+    return 'Other'
+  }
+
+  async function toggleCheck(id: string, checked: boolean) {
+    await fetch('/api/nutrition/grocery', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, checked }),
+    })
+    setItems(prev => prev.map(i => i.id === id ? { ...i, checked } : i))
+  }
+
+  async function deleteItem(id: string) {
+    await fetch(`/api/nutrition/grocery?id=${id}`, { method: 'DELETE' })
+    setItems(prev => prev.filter(i => i.id !== id))
+  }
+
+  async function addCustomItem() {
+    if (!newItem.trim()) return
+    const res = await fetch('/api/nutrition/grocery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...recipeData, ingredients }),
+      body: JSON.stringify({
+        week_start: weekStart,
+        items: [...items.filter(i => !i.custom).map(i => ({
+          name: i.name, quantity: i.quantity, unit: i.unit,
+          category: i.category, checked: i.checked, custom: false,
+        })), {
+          name: newItem.trim(),
+          quantity: null, unit: null,
+          category: newCategory,
+          checked: false, custom: true,
+        }]
+      }),
     }).then(r => r.json())
+    setItems(res.data ?? [])
+    setNewItem('')
+  }
+
+  async function clearPurchased() {
+    for (const item of items.filter(i => i.checked)) {
+      await fetch(`/api/nutrition/grocery?id=${item.id}`, { method: 'DELETE' })
+    }
+    setItems(prev => prev.filter(i => !i.checked))
+  }
+
+  const grouped = CATEGORIES.reduce((acc, cat) => {
+    const catItems = items.filter(i => i.category === cat)
+    if (catItems.length) acc[cat] = catItems
+    return acc
+  }, {} as Record<string, GroceryItem[]>)
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col">
+      <div className="px-4 py-3 border-b border-border flex-shrink-0 flex items-center justify-between">
+        <span className="widget-label">Grocery list</span>
+        <div className="flex items-center gap-2">
+          {items.some(i => i.checked) && (
+            <button onClick={clearPurchased} className="text-[10px] text-text-tertiary hover:text-text-secondary">
+              clear purchased
+            </button>
+          )}
+          <button
+            onClick={generateList}
+            disabled={generating || entries.length === 0}
+            className="btn-connect text-[10px] py-1"
+          >
+            {generating ? 'Generating...' : 'Generate from plan'}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {loading && <div className="px-4 py-4 text-xs text-text-tertiary">Loading...</div>}
+
+        {!loading && items.length === 0 && (
+          <div className="px-4 py-6 text-xs text-text-tertiary text-center">
+            Add recipes to your planner then click "Generate from plan"
+          </div>
+        )}
+
+        {Object.entries(grouped).map(([category, catItems]) => (
+          <div key={category}>
+            <div className="px-4 py-1.5 bg-surface-3 border-b border-border">
+              <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">{category}</span>
+            </div>
+            {catItems.map(item => (
+              <div key={item.id} className="flex items-center gap-2 px-4 py-2 border-b border-border last:border-0 hover:bg-surface-3 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={item.checked}
+                  onChange={e => toggleCheck(item.id, e.target.checked)}
+                  className="accent-accent flex-shrink-0"
+                />
+                <span className={`flex-1 text-xs ${item.checked ? 'line-through text-text-tertiary' : 'text-text-primary'}`}>
+                  {item.quantity != null ? `${item.quantity} ${item.unit} ` : ''}{item.name}
+                </span>
+                <button onClick={() => deleteItem(item.id)} className="text-text-dim hover:text-accent-red text-xs flex-shrink-0">✕</button>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* Add custom item */}
+        <div className="px-3 py-3 border-t border-border flex items-center gap-2">
+          <input
+            value={newItem}
+            onChange={e => setNewItem(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addCustomItem()}
+            placeholder="Add item + Enter"
+            className="flex-1 bg-surface-3 border border-border rounded-md px-2 py-1.5 text-xs text-text-primary
+                       placeholder:text-text-tertiary focus:outline-none"
+          />
+          <select
+            value={newCategory}
+            onChange={e => setNewCategory(e.target.value)}
+            className="bg-surface-3 border border-border rounded-md px-2 py-1.5 text-xs text-text-primary focus:outline-none"
+          >
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────
+export function NutritionClient({ initialProfile, initialRecipes }: {
+  initialProfile: any
+  initialRecipes: any[]
+}) {
+  const [weekStart, setWeekStart] = useState(getWeekStart(new Date()))
+  const [plannerEntries, setPlannerEntries] = useState<PlannerEntry[]>([])
+  const [planId, setPlanId] = useState<string | null>(null)
+  const [loadingPlan, setLoadingPlan] = useState(true)
+  const [chatContext, setChatContext] = useState<{ day?: string; meal?: string } | null>(null)
+
+  useEffect(() => {
+    setLoadingPlan(true)
+    fetch(`/api/nutrition/planner?week_start=${weekStart}`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.data) {
+          setPlanId(res.data.id)
+          setPlannerEntries(res.data.meal_plan_entries ?? [])
+        }
+      })
+      .finally(() => setLoadingPlan(false))
+  }, [weekStart])
+
+  async function handleAddToPlanner(recipe: GeneratedRecipe, day: string, meal: string, servings: number) {
+    if (!planId) return
+
+    // Save recipe to library first if not already saved
+    let recipeId = recipe.id
+    if (!recipeId) {
+      const saveRes = await fetch('/api/nutrition/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: recipe.name,
+          description: recipe.description,
+          meal_type: recipe.meal_type,
+          servings: recipe.servings,
+          instructions: recipe.instructions,
+          tags: recipe.tags,
+          total_calories: recipe.estimated_calories,
+          total_protein: recipe.estimated_protein,
+          total_carbs: recipe.estimated_carbs,
+          total_fat: recipe.estimated_fat,
+          ingredients: recipe.ingredients.map(ing => ({
+            ...ing, calories: 0, protein: 0, carbs: 0, fat: 0
+          })),
+        }),
+      }).then(r => r.json())
+      recipeId = saveRes.data?.id
+    }
+
+    if (!recipeId) return
+
+    const res = await fetch('/api/nutrition/planner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        meal_plan_id: planId,
+        recipe_id: recipeId,
+        day_of_week: day,
+        meal_type: meal,
+        servings,
+      }),
+    }).then(r => r.json())
+
     if (res.data) {
-      setRecipes(prev => [{ ...res.data, recipe_ingredients: ingredients }, ...prev])
-      setGeneratedRecipes(prev => prev.filter(r => r.name !== recipe.name))
+      setPlannerEntries(prev => [...prev, res.data])
     }
   }
 
-  async function rateRecipe(id: string, rating: number) {
-    await fetch('/api/nutrition/recipes', {
+  async function handleRemoveEntry(id: string) {
+    await fetch(`/api/nutrition/planner?id=${id}`, { method: 'DELETE' })
+    setPlannerEntries(prev => prev.filter(e => e.id !== id))
+  }
+
+  async function handleUpdateServings(id: string, servings: number) {
+    await fetch('/api/nutrition/planner', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, rating }),
+      body: JSON.stringify({ id, servings }),
     })
-    setRecipes(prev => prev.map(r => r.id === id ? { ...r, rating } : r))
+    setPlannerEntries(prev => prev.map(e => e.id === id ? { ...e, servings } : e))
   }
 
-  async function deleteRecipe(id: string) {
-    await fetch(`/api/nutrition/recipes?id=${id}`, { method: 'DELETE' })
-    setRecipes(prev => prev.filter(r => r.id !== id))
+  function prevWeek() {
+    const d = new Date(weekStart + 'T12:00:00')
+    d.setDate(d.getDate() - 7)
+    setWeekStart(getWeekStart(d))
   }
+
+  function nextWeek() {
+    const d = new Date(weekStart + 'T12:00:00')
+    d.setDate(d.getDate() + 7)
+    setWeekStart(getWeekStart(d))
+  }
+
+  const weekEnd = new Date(weekStart + 'T12:00:00')
+  weekEnd.setDate(weekEnd.getDate() + 6)
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6">
+    <div className="flex flex-col gap-4 h-full">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Week navigator */}
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-text-primary font-medium">Nutrition</h2>
-          <p className="text-text-tertiary text-xs mt-0.5">{recipes.length} recipes in your library</p>
+          <h2 className="text-text-primary font-medium">Nutrition Planner</h2>
+          <p className="text-text-tertiary text-xs mt-0.5">
+            {format(new Date(weekStart + 'T12:00:00'), 'MMM d')} – {format(weekEnd, 'MMM d, yyyy')}
+          </p>
         </div>
-        <button onClick={() => setShowProfile(true)} className="btn-connect">
-          {hasProfile ? 'edit profile' : 'set up profile'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={prevWeek} className="btn-connect px-3">←</button>
+          <button onClick={() => setWeekStart(getWeekStart(new Date()))} className="btn-connect px-3 text-[10px]">This week</button>
+          <button onClick={nextWeek} className="btn-connect px-3">→</button>
+        </div>
       </div>
 
-      {/* No profile warning */}
-      {!hasProfile && (
-        <div className="bg-surface-2 border border-accent-amber/30 rounded-lg px-4 py-3 text-xs text-accent-amber">
-          Set up your nutrition profile first so Claude can generate personalized recipes for you.
-        </div>
-      )}
-
-      {/* Generate recipes */}
-      <div className="bg-surface-2 border border-border rounded-lg p-4 flex flex-col gap-3">
-        <span className="widget-label">Generate recipes</span>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-text-tertiary">Meal type:</span>
-          {['breakfast', 'lunch', 'dinner', 'snack', 'meal prep'].map(t => (
-            <button
-              key={t}
-              onClick={() => setMealType(mealType === t ? '' : t)}
-              className={`text-xs px-3 py-1.5 rounded-md border transition-colors capitalize ${
-                mealType === t
-                  ? 'border-accent text-accent bg-accent/10'
-                  : 'border-border text-text-tertiary hover:border-border-strong hover:text-text-secondary'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        <textarea
-          value={context}
-          onChange={e => setContext(e.target.value)}
-          placeholder="Any additional context? e.g. 'I have a long run tomorrow', 'keeping it simple this week', 'craving something warm and savory'..."
-          rows={3}
-          className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
-                     placeholder:text-text-tertiary focus:outline-none focus:border-border-strong
-                     resize-none transition-colors"
-        />
-        <button
-          onClick={generateRecipes}
-          disabled={generating || !mealType}
-          className="btn-primary w-fit"
-        >
-          {generating ? 'Generating...' : mealType ? `Generate 3 ${mealType} recipes` : 'Select a meal type first'}
-        </button>
-      </div>
-
-      {/* Generated recipes */}
-      {generatedRecipes.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <span className="widget-label">Generated — save what you want</span>
-          {generatedRecipes.map((recipe, i) => (
-            <div key={i} className="bg-surface-2 border border-accent/20 rounded-lg p-4 flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-text-primary">{recipe.name}</span>
-                    {recipe.meal_type?.map((t: string) => (
-                      <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-3 text-text-tertiary capitalize">{t}</span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-text-tertiary mt-0.5">{recipe.description}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <MacroPill label="Cal" value={recipe.total_calories} unit="" color="#e8e8e8" />
-                <MacroPill label="Protein" value={recipe.total_protein} unit="g" color="#4ade80" />
-                <MacroPill label="Carbs" value={recipe.total_carbs} unit="g" color="#60a5fa" />
-                <MacroPill label="Fat" value={recipe.total_fat} unit="g" color="#fbbf24" />
-              </div>
-              <div>
-                <span className="widget-label">Ingredients</span>
-                <div className="mt-1.5 flex flex-col gap-1">
-                  {recipe.ingredients?.map((ing: any, j: number) => (
-                    <div key={j} className="flex items-center justify-between text-xs">
-                      <span className="text-text-secondary">{ing.quantity} {ing.unit} {ing.name}</span>
-                      <span className="text-text-tertiary font-mono">{ing.calories} cal · {ing.protein}g P</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => saveRecipe(recipe)} className="btn-primary">Save recipe</button>
-                <button
-                  onClick={() => setGeneratedRecipes(prev => prev.filter((_, idx) => idx !== i))}
-                  className="text-xs text-text-tertiary hover:text-text-secondary"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Recipe library */}
-      {recipes.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <span className="widget-label">Recipe library ({recipes.length})</span>
-          {recipes.map(recipe => (
-            <RecipeCard key={recipe.id} recipe={recipe} onRate={rateRecipe} onDelete={deleteRecipe} />
-          ))}
-        </div>
-      )}
-
-      {recipes.length === 0 && !generating && generatedRecipes.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-32 gap-2">
-          <span className="text-text-tertiary text-sm">No recipes yet</span>
-          <span className="text-text-dim text-xs">Select a meal type above and generate recipes to get started</span>
-        </div>
-      )}
-
-      {/* Profile modal */}
-      {showProfile && (
-        <Modal onClose={() => setShowProfile(false)}>
-          <div className="p-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-text-primary font-medium">Nutrition profile</h3>
-              <button onClick={() => setShowProfile(false)} className="text-text-tertiary hover:text-text-primary text-lg">×</button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: 'Height (inches)', key: 'height_inches', placeholder: '70' },
-                { label: 'Weight (lbs)', key: 'weight_lbs', placeholder: '180' },
-                { label: 'Body fat %', key: 'body_fat_pct', placeholder: '15' },
-                { label: 'Target calories', key: 'target_calories', placeholder: '2400' },
-                { label: 'Target protein (g)', key: 'target_protein', placeholder: '180' },
-                { label: 'Target carbs (g)', key: 'target_carbs', placeholder: '250' },
-                { label: 'Target fat (g)', key: 'target_fat', placeholder: '80' },
-              ].map(f => (
-                <div key={f.key} className="flex flex-col gap-1">
-                  <label className="widget-label">{f.label}</label>
-                  <input
-                    type="text"
-                    value={(profile as any)[f.key] ?? ''}
-                    onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value ? parseFloat(e.target.value) : null }))}
-                    placeholder={f.placeholder}
-                    className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
-                               placeholder:text-text-tertiary focus:outline-none focus:border-border-strong font-mono"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Goal</label>
-                <select
-                  value={profile.goal ?? 'maintain'}
-                  onChange={e => setProfile(p => ({ ...p, goal: e.target.value }))}
-                  className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none"
-                >
-                  <option value="cut">Cut (lose fat)</option>
-                  <option value="maintain">Maintain</option>
-                  <option value="bulk">Bulk (gain muscle)</option>
-                  <option value="recomp">Recomp</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Activity baseline</label>
-                <select
-                  value={profile.activity_baseline ?? 'moderate'}
-                  onChange={e => setProfile(p => ({ ...p, activity_baseline: e.target.value }))}
-                  className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none"
-                >
-                  <option value="sedentary">Sedentary</option>
-                  <option value="light">Light</option>
-                  <option value="moderate">Moderate</option>
-                  <option value="very_active">Very active</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="widget-label">Weekly context (optional)</label>
-              <input
-                value={profile.weekly_context ?? ''}
-                onChange={e => setProfile(p => ({ ...p, weekly_context: e.target.value }))}
-                placeholder="e.g. heavy training week, traveling, low energy..."
-                className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
-                           placeholder:text-text-tertiary focus:outline-none focus:border-border-strong"
-              />
-            </div>
-
-            {[
-              { label: 'Health conditions', field: 'health_conditions' as keyof NutritionProfile, input: conditionInput, setInput: setConditionInput, placeholder: 'e.g. ADHD, hypertension' },
-              { label: 'Dietary restrictions', field: 'dietary_restrictions' as keyof NutritionProfile, input: restrictionInput, setInput: setRestrictionInput, placeholder: 'e.g. no dairy, gluten-free' },
-              { label: 'Foods you love', field: 'foods_loved' as keyof NutritionProfile, input: lovedInput, setInput: setLovedInput, placeholder: 'e.g. salmon, sweet potato' },
-              { label: 'Foods to avoid', field: 'foods_avoided' as keyof NutritionProfile, input: avoidedInput, setInput: setAvoidedInput, placeholder: 'e.g. brussels sprouts' },
-            ].map(f => (
-              <div key={f.field as string} className="flex flex-col gap-1.5">
-                <label className="widget-label">{f.label}</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    value={f.input}
-                    onChange={e => f.setInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        addToArray(f.field, f.input)
-                        f.setInput('')
-                      }
-                    }}
-                    placeholder={`${f.placeholder} + Enter`}
-                    className="bg-surface-3 border border-border rounded-md px-3 py-1.5 text-xs text-text-primary
-                               placeholder:text-text-tertiary focus:outline-none flex-1"
-                  />
-                </div>
-                {(profile[f.field] as string[]).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {(profile[f.field] as string[]).map(v => (
-                      <span key={v} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-surface-3 text-text-secondary">
-                        {v}
-                        <button onClick={() => removeFromArray(f.field, v)} className="text-text-tertiary hover:text-accent-red">×</button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            <button onClick={saveProfile} disabled={savingProfile} className="btn-primary">
-              {savingProfile ? 'Saving...' : profileSaved ? '✓ Saved' : 'Save profile'}
-            </button>
+      {/* Weekly planner grid — full width */}
+      <div className="flex-shrink-0">
+        {loadingPlan ? (
+          <div className="bg-surface-2 border border-border rounded-lg h-48 flex items-center justify-center">
+            <span className="text-xs text-text-tertiary">Loading planner...</span>
           </div>
-        </Modal>
-      )}
+        ) : (
+          <PlannerGrid
+            weekStart={weekStart}
+            entries={plannerEntries}
+            onRemove={handleRemoveEntry}
+            onCellClick={(day, meal) => setChatContext({ day, meal })}
+          />
+        )}
+      </div>
+
+      {/* Bottom panels */}
+      <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
+        {/* Chat */}
+        <div className="flex flex-col min-h-0" style={{ height: '500px' }}>
+          <ChatPanel
+            weekStart={weekStart}
+            onRecipeAdd={handleAddToPlanner}
+            plannerEntries={plannerEntries}
+          />
+        </div>
+
+        {/* Nutrition summary */}
+        <div className="flex flex-col min-h-0" style={{ height: '500px' }}>
+          <NutritionSummary entries={plannerEntries} profile={initialProfile} />
+        </div>
+
+        {/* Recipes + Grocery */}
+        <div className="flex flex-col gap-4 min-h-0" style={{ height: '500px' }}>
+          <div className="flex-1 min-h-0">
+            <RecipesPanel
+              entries={plannerEntries}
+              onUpdateServings={handleUpdateServings}
+              onRemove={handleRemoveEntry}
+            />
+          </div>
+          <div className="flex-1 min-h-0">
+            <GroceryPanel weekStart={weekStart} entries={plannerEntries} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
