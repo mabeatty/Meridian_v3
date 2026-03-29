@@ -29,13 +29,13 @@ export function Header({ displayName, weather }: HeaderProps) {
         <h2 className="text-2xl font-medium text-text-primary tracking-tight">
         {time ? getGreeting(time.getHours()) : 'Hello'}, {displayName || 'Alex'}.
         </h2>
-        <p className="text-text-secondary text-sm mt-0.5">{format(time, 'EEEE, MMMM d')}</p>
+        <p className="text-text-secondary text-sm mt-0.5">{time ? format(time as Date, 'EEEE, MMMM d') : ''}</p>
       </div>
       <div className="flex items-start gap-8">
         <div className="text-right">
           <div className="font-clock text-3xl font-light text-text-primary tabular-nums tracking-tight">
-            {format(time, 'h:mm:ss')}{' '}
-            <span className="text-lg text-text-secondary">{format(time, 'aa').toUpperCase()}</span>
+          {time ? format(time as Date, 'h:mm:ss') : '--:--:--'}{' '}
+          <span className="text-lg text-text-secondary">{time ? format(time as Date, 'aa').toUpperCase() : ''}</span>
           </div>
         </div>
         {weather ? (
