@@ -424,9 +424,10 @@ function RecipeCard({ recipe, onAdd }: {
 }
 
 // ─── Chat Panel ───────────────────────────────────────────────
-function ChatPanel({ weekStart, onRecipeAdd }: {
+function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
   weekStart: string
   onRecipeAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
+  plannerEntries: PlannerEntry[]
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -473,7 +474,7 @@ function ChatPanel({ weekStart, onRecipeAdd }: {
     const res = await fetch('/api/nutrition/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input, week_start: weekStart, history }),
+      body: JSON.stringify({ message: input, week_start: weekStart, history, planner_entries: plannerEntries }),
     }).then(r => r.json())
 
     const assistantMsg: Message = {
@@ -1060,7 +1061,7 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 
       {/* Bottom panels */}
       <div className="grid grid-cols-3 gap-4" style={{ height: '700px' }}>
-        <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} />
+        <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} plannerEntries={plannerEntries} />
         <NutritionSummary entries={plannerEntries} profile={profile} />
         <div className="flex flex-col gap-4 min-h-0">
           <div className="flex-1 min-h-0">

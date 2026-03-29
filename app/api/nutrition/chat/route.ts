@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { message, week_start, history } = await req.json()
+  const { message, week_start, history, planner_entries } = await req.json()
 
   // Get all context
   const [profileRes, healthRes, feedbackRes, libraryRes] = await Promise.all([
@@ -70,6 +70,13 @@ ${feedback.map(f => `- ${f.recipe_name}: ${f.rating}/5${f.notes ? ` — "${f.not
 
 WEEK: ${week_start}
 
+CURRENT MEAL PLAN (what's already been added to the planner this week):
+${planner_entries?.length > 0
+  ? planner_entries.map((e: any) =>
+      `- ${e.day_of_week} ${e.meal_type}: ${e.recipes?.name} (${e.servings} serving${e.servings !== 1 ? 's' : ''}, ${Math.round(e.recipes?.total_calories * e.servings)} cal, ${Math.round(e.recipes?.total_protein * e.servings)}g protein)`
+    ).join('\n')
+  : 'Nothing planned yet'}
+
 When generating recipes, return them in this EXACT JSON format embedded in your response. Wrap recipe JSON in <recipes> tags:
 <recipes>
 [
@@ -95,10 +102,12 @@ When generating recipes, return them in this EXACT JSON format embedded in your 
 You can include regular conversational text before and after the <recipes> tags. Always be warm, direct and personalized. Reference their health data and goals naturally. If they ask for recipes from their library, reference them by name. Keep responses concise.`
 
   try {
+    // Keep last 10 messages to avoid context overflow
+    const trimmedHistory = history.slice(-10)
     const messages = [
-      ...history.map((m: any) => ({ role: m.role, content: m.content })),
-      { role: 'user', content: message }
-    ]
+        ...trimmedHistory.map((m: any) => ({ role: m.role, content: m.content })),
+        { role: 'user', content: message }
+    ]   
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
