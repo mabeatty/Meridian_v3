@@ -253,7 +253,7 @@ function RecipeCard({ recipe, onAdd }: {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedDays, setSelectedDays] = useState<string[]>([])
   const [selectedMeal, setSelectedMeal] = useState(recipe.meal_type?.[0] ?? 'dinner')
-  const [servings, setServings] = useState(recipe.servings ?? 1)
+  const [servings, setServings] = useState(1)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [rating, setRating] = useState(0)
