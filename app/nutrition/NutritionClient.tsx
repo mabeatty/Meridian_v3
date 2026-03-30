@@ -32,6 +32,7 @@ interface PlannerEntry {
   recipes: {
     id: string
     name: string
+    servings: number
     total_calories: number
     total_protein: number
     total_carbs: number
@@ -87,7 +88,7 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack']
 const CATEGORIES = ['Produce', 'Protein', 'Dairy', 'Grains', 'Pantry', 'Frozen', 'Other']
 const PANEL_HEIGHT = 600
-const CHAT_HEIGHT = PANEL_HEIGHT * 2 + 16 // matches two stacked panels + gap
+const CHAT_HEIGHT = PANEL_HEIGHT * 2 + 16
 
 function getWeekStart(date: Date): string {
   const d = startOfWeek(date, { weekStartsOn: 0 })
@@ -241,9 +242,10 @@ function ProfileModal({ profile, onSave, onClose }: {
   )
 }
 
-function ChatRecipeCard({ recipe, onAdd }: {
+function ChatRecipeCard({ recipe, onAdd, onSaved }: {
   recipe: GeneratedRecipe
   onAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
+  onSaved?: (recipe: any) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -257,7 +259,7 @@ function ChatRecipeCard({ recipe, onAdd }: {
 
   async function saveToLibrary() {
     setSaving(true)
-    await fetch('/api/nutrition/recipes', {
+    const res = await fetch('/api/nutrition/recipes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -267,7 +269,8 @@ function ChatRecipeCard({ recipe, onAdd }: {
         total_carbs: recipe.estimated_carbs, total_fat: recipe.estimated_fat,
         ingredients: recipe.ingredients.map(ing => ({ ...ing, calories: 0, protein: 0, carbs: 0, fat: 0 })),
       }),
-    })
+    }).then(r => r.json())
+    if (res.data) onSaved?.(res.data)
     setSaved(true)
     setSaving(false)
   }
@@ -387,10 +390,11 @@ function ChatRecipeCard({ recipe, onAdd }: {
   )
 }
 
-function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
+function ChatPanel({ weekStart, onRecipeAdd, plannerEntries, onRecipeSaved }: {
   weekStart: string
   onRecipeAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
   plannerEntries: PlannerEntry[]
+  onRecipeSaved: (recipe: any) => void
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -442,10 +446,7 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
   }
 
   return (
-    <div
-      className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden"
-      style={{ height: CHAT_HEIGHT }}
-    >
+    <div className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden" style={{ height: CHAT_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">Nutrition Assistant</span>
       </div>
@@ -462,7 +463,7 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
               {msg.content}
             </div>
             {msg.recipes && msg.recipes.map((recipe, j) => (
-              <ChatRecipeCard key={j} recipe={recipe} onAdd={onRecipeAdd} />
+              <ChatRecipeCard key={j} recipe={recipe} onAdd={onRecipeAdd} onSaved={onRecipeSaved} />
             ))}
           </div>
         ))}
@@ -686,6 +687,8 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
   const [servings, setServings] = useState(1)
   const [localRecipes, setLocalRecipes] = useState(recipes)
 
+  useEffect(() => { setLocalRecipes(recipes) }, [recipes])
+
   const PROTEINS = ['beef', 'chicken', 'fish', 'pork', 'turkey', 'shrimp', 'eggs', 'tofu', 'lamb']
   const CUISINES = ['american', 'asian', 'mexican', 'italian', 'mediterranean', 'indian', 'japanese', 'thai', 'greek']
 
@@ -891,6 +894,17 @@ function GroceryPanel({ weekStart, entries }: {
       .finally(() => setLoading(false))
   }, [weekStart])
 
+  const entriesKey = entries.map(e => `${e.id}-${e.servings}`).join(',')
+
+  useEffect(() => {
+    if (loading) return
+    if (entries.length > 0) {
+      generateList()
+    } else {
+      setItems(prev => prev.filter(i => i.custom))
+    }
+  }, [entriesKey])
+
   function categorize(name: string): string {
     const n = name.toLowerCase()
     if (/chicken|beef|pork|fish|salmon|tuna|shrimp|turkey|egg/.test(n)) return 'Protein'
@@ -906,9 +920,9 @@ function GroceryPanel({ weekStart, entries }: {
     setGenerating(true)
     const ingredientMap: Record<string, { quantity: number; unit: string; category: string }> = {}
     for (const entry of entries) {
-      const recipeServings = (entry.recipes as any).servings ?? 1
+      const recipeServings = entry.recipes.servings ?? 1
       const plannerServings = entry.servings
-      const scale = plannerServings / recipeServings // per-serving scale
+      const scale = plannerServings / recipeServings
       for (const ing of entry.recipes.recipe_ingredients ?? []) {
         const key = `${ing.name.toLowerCase()}::${ing.unit ?? ''}`
         const scaledQty = Math.round((ing.quantity ?? 0) * scale * 10) / 10
@@ -920,13 +934,24 @@ function GroceryPanel({ weekStart, entries }: {
       }
     }
     const newItems = Object.entries(ingredientMap).map(([key, val]) => ({
-      name: key.split('::')[0], quantity: Math.round(val.quantity * 10) / 10,
-      unit: val.unit, category: val.category, checked: false, custom: false,
+      name: key.split('::')[0],
+      quantity: Math.round(val.quantity * 10) / 10,
+      unit: val.unit,
+      category: val.category,
+      checked: false,
+      custom: false,
     }))
+    const customItems = items.filter(i => i.custom)
     const res = await fetch('/api/nutrition/grocery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week_start: weekStart, items: newItems }),
+      body: JSON.stringify({
+        week_start: weekStart,
+        items: [...newItems, ...customItems.map(i => ({
+          name: i.name, quantity: i.quantity, unit: i.unit,
+          category: i.category, checked: i.checked, custom: true,
+        }))]
+      }),
     }).then(r => r.json())
     setItems(res.data ?? [])
     setGenerating(false)
@@ -948,11 +973,17 @@ function GroceryPanel({ weekStart, entries }: {
 
   async function addCustomItem() {
     if (!newItem.trim()) return
-    const existing = items.filter(i => !i.custom).map(i => ({ name: i.name, quantity: i.quantity, unit: i.unit, category: i.category, checked: i.checked, custom: false }))
+    const existing = items.filter(i => !i.custom).map(i => ({
+      name: i.name, quantity: i.quantity, unit: i.unit,
+      category: i.category, checked: i.checked, custom: false,
+    }))
     const res = await fetch('/api/nutrition/grocery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week_start: weekStart, items: [...existing, { name: newItem.trim(), quantity: null, unit: null, category: newCategory, checked: false, custom: true }] }),
+      body: JSON.stringify({
+        week_start: weekStart,
+        items: [...existing, { name: newItem.trim(), quantity: null, unit: null, category: newCategory, checked: false, custom: true }]
+      }),
     }).then(r => r.json())
     setItems(res.data ?? [])
     setNewItem('')
@@ -985,7 +1016,9 @@ function GroceryPanel({ weekStart, entries }: {
   return (
     <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0 flex items-center justify-between">
-        <span className="widget-label">Grocery list</span>
+        <span className="widget-label">
+          Grocery list {generating && <span className="text-text-dim normal-case font-normal ml-1">· updating...</span>}
+        </span>
         <div className="flex items-center gap-2">
           {items.some(i => i.checked) && (
             <button onClick={clearPurchased} className="text-[10px] text-text-tertiary hover:text-text-secondary">clear purchased</button>
@@ -994,14 +1027,16 @@ function GroceryPanel({ weekStart, entries }: {
             <button onClick={copyList} className="btn-connect text-[10px] py-1">copy list</button>
           )}
           <button onClick={generateList} disabled={generating || entries.length === 0} className="btn-connect text-[10px] py-1">
-            {generating ? 'Generating...' : 'Generate from plan'}
+            {generating ? 'Updating...' : 'Regenerate'}
           </button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading && <div className="px-4 py-4 text-xs text-text-tertiary">Loading...</div>}
         {!loading && items.length === 0 && (
-          <div className="px-4 py-6 text-xs text-text-tertiary text-center">Add recipes to your planner then click "Generate from plan"</div>
+          <div className="px-4 py-6 text-xs text-text-tertiary text-center">
+            Add recipes to your planner and the grocery list will populate automatically
+          </div>
         )}
         {Object.entries(grouped).map(([category, catItems]) => (
           <div key={category}>
@@ -1067,18 +1102,13 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 
   async function handleAddToPlanner(recipe: any, days: string[], meal: string, servings: number) {
     if (!planId) return
-  
     let recipeId = recipe.id
-  
-    // Check if already in library by name to prevent duplicates
+
     if (!recipeId) {
       const existing = savedRecipes.find(r => r.name === recipe.name)
-      if (existing) {
-        recipeId = existing.id
-      }
+      if (existing) recipeId = existing.id
     }
-  
-    // Only save to library if truly new
+
     if (!recipeId) {
       const saveRes = await fetch('/api/nutrition/recipes', {
         method: 'POST',
@@ -1096,9 +1126,9 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       recipeId = saveRes.data?.id
       if (saveRes.data) setSavedRecipes(prev => [saveRes.data, ...prev])
     }
-  
+
     if (!recipeId) return
-  
+
     for (const day of days) {
       const res = await fetch('/api/nutrition/planner', {
         method: 'POST',
@@ -1140,8 +1170,6 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 
   return (
     <div className="flex flex-col gap-4 pb-8">
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-text-primary font-medium">Nutrition Planner</h2>
@@ -1161,7 +1189,6 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
         </div>
       </div>
 
-      {/* Weekly planner grid — full width */}
       {loadingPlan ? (
         <div className="bg-surface-2 border border-border rounded-lg h-48 flex items-center justify-center">
           <span className="text-xs text-text-tertiary">Loading planner...</span>
@@ -1170,23 +1197,20 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
         <PlannerGrid weekStart={weekStart} entries={plannerEntries} onRemove={handleRemoveEntry} />
       )}
 
-      {/* Bottom 3 columns — chat is full height on left */}
       <div className="grid grid-cols-3 gap-4 items-start">
-
-        {/* Left — Chat, tall */}
         <ChatPanel
           weekStart={weekStart}
           onRecipeAdd={handleAddToPlanner}
           plannerEntries={plannerEntries}
+          onRecipeSaved={(recipe) => setSavedRecipes(prev => {
+            if (prev.find(r => r.name === recipe.name)) return prev
+            return [recipe, ...prev]
+          })}
         />
-
-        {/* Middle — Nutrition summary + Grocery list stacked */}
         <div className="flex flex-col gap-4">
           <NutritionSummary entries={plannerEntries} profile={profile} />
           <GroceryPanel weekStart={weekStart} entries={plannerEntries} />
         </div>
-
-        {/* Right — This week's recipes + Recipe library stacked */}
         <div className="flex flex-col gap-4">
           <RecipesPanel entries={plannerEntries} onUpdateServings={handleUpdateServings} onRemove={handleRemoveEntry} />
           <RecipeLibraryPanel recipes={savedRecipes} planId={planId} onAddToPlanner={handleAddToPlanner} />
