@@ -402,7 +402,7 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch(`/api/fitness/chat?week_start=${weekStart}`)
+    fetch(`/api/health/chat?week_start=${weekStart}`)
       .then(r => r.json())
       .then(res => {
         const msgs = (res.messages ?? []).filter((m: any) => m.role === 'user' || m.role === 'assistant')
@@ -435,7 +435,7 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
     setInput('')
     setLoading(true)
     const trimmedHistory = messages.slice(-10).map(m => ({ role: m.role, content: m.content }))
-    const res = await fetch('/api/fitness/chat', {
+    const res = await fetch('/api/health/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: input, week_start: weekStart, history: trimmedHistory, current_workouts: currentWorkouts }),
@@ -567,7 +567,7 @@ function ProgressPanel({ completedWorkouts, metrics, bodyComp, latestAssessment 
 
   async function generateAssessment() {
     setGeneratingAssessment(true)
-    const res = await fetch('/api/fitness/assessment', {
+    const res = await fetch('/api/health/assessment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -806,7 +806,7 @@ export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAs
   async function handleSaveWorkout(data: any) {
     const isEdit = !!data.id
     const method = isEdit ? 'PATCH' : 'POST'
-    const res = await fetch('/api/fitness/workouts', {
+    const res = await fetch('/api/health/workouts', {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -822,12 +822,12 @@ export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAs
   }
 
   async function handleDeleteWorkout(id: string) {
-    await fetch(`/api/fitness/workouts?id=${id}`, { method: 'DELETE' })
+    await fetch(`/api/health/workouts?id=${id}`, { method: 'DELETE' })
     setWorkouts(prev => prev.filter(w => w.id !== id))
   }
 
   async function handleAddFromChat(workoutData: any) {
-    const res = await fetch('/api/fitness/workouts', {
+    const res = await fetch('/api/health/workouts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(workoutData),
