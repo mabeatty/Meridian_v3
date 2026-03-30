@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { format, parseISO, startOfWeek, addDays } from 'date-fns'
+import { format, parseISO, startOfWeek } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
-// ─── Types ───────────────────────────────────────────────────
 interface Metric {
   metric_date: string
   recovery_score: number | null
@@ -17,7 +16,7 @@ interface Metric {
 }
 
 interface WorkoutExercise {
-  id: string
+  id?: string
   exercise_name: string
   order_index: number
   sets: { set: number; reps: number; weight: number; notes?: string }[]
@@ -45,7 +44,7 @@ interface Message {
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const WORKOUT_TYPES = ['strength', 'cardio', 'mobility', 'hiit', 'tennis', 'yoga']
 const KEY_LIFTS = ['Squat', 'Bench Press', 'Overhead Press', 'Row', 'Incline Bench', 'Bulgarian Split Squat']
-const PANEL_HEIGHT = 500
+const PANEL_HEIGHT = 520
 
 function getWeekStart(date: Date): string {
   const d = startOfWeek(date, { weekStartsOn: 0 })
@@ -69,7 +68,6 @@ function Modal({ onClose, children }: { onClose: () => void; children: React.Rea
   )
 }
 
-// ─── Ring ─────────────────────────────────────────────────────
 function Ring({ score, max = 100, color, label, size = 72 }: {
   score: number; max?: number; color: string; label: string; size?: number
 }) {
@@ -94,7 +92,6 @@ function Ring({ score, max = 100, color, label, size = 72 }: {
   )
 }
 
-// ─── Chart ────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
@@ -115,7 +112,7 @@ function MiniChart({ data, dataKey, color, label, domain }: {
   return (
     <div className="bg-surface-2 border border-border rounded-lg p-3">
       <span className="text-[10px] font-semibold tracking-wider uppercase text-text-tertiary">{label}</span>
-      <ResponsiveContainer width="100%" height={80}>
+      <ResponsiveContainer width="100%" height={70}>
         <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
           <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#555' }} tickLine={false} axisLine={false} />
@@ -129,11 +126,10 @@ function MiniChart({ data, dataKey, color, label, domain }: {
   )
 }
 
-// ─── Workout Modal ────────────────────────────────────────────
 function WorkoutModal({ workout, onClose, onSave, onDelete }: {
   workout: Partial<Workout> & { scheduled_date: string }
   onClose: () => void
-  onSave: (w: any) => void
+  onSave: (w: any) => Promise<void>
   onDelete?: (id: string) => void
 }) {
   const [form, setForm] = useState({
@@ -144,12 +140,13 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
     status: workout.status ?? 'planned',
     notes: workout.notes ?? '',
   })
-  const [exercises, setExercises] = useState<WorkoutExercise[]>(workout.workout_exercises ?? [])
+  const [exercises, setExercises] = useState<WorkoutExercise[]>(
+    workout.workout_exercises ?? []
+  )
   const [saving, setSaving] = useState(false)
 
   function addExercise() {
     setExercises(prev => [...prev, {
-      id: Math.random().toString(),
       exercise_name: '',
       order_index: prev.length,
       sets: [{ set: 1, reps: 10, weight: 0 }],
@@ -169,8 +166,8 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
   function addSet(exIdx: number) {
     setExercises(prev => prev.map((e, i) => {
       if (i !== exIdx) return e
-      const lastSet = e.sets[e.sets.length - 1]
-      return { ...e, sets: [...e.sets, { set: e.sets.length + 1, reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0 }] }
+      const last = e.sets[e.sets.length - 1]
+      return { ...e, sets: [...e.sets, { set: e.sets.length + 1, reps: last?.reps ?? 10, weight: last?.weight ?? 0 }] }
     }))
   }
 
@@ -210,10 +207,8 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
     <Modal onClose={onClose}>
       <div className="p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-text-primary font-medium">
-            {workout.id ? 'Edit workout' : 'New workout'}
-          </h3>
-          <div className="flex items-center gap-2">
+          <h3 className="text-text-primary font-medium">{workout.id ? 'Edit workout' : 'New workout'}</h3>
+          <div className="flex items-center gap-3">
             {workout.id && onDelete && (
               <button onClick={() => { onDelete(workout.id!); onClose() }}
                 className="text-xs text-accent-red hover:text-accent-red/80">delete</button>
@@ -238,7 +233,7 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
           <div className="flex flex-col gap-1">
             <label className="widget-label">Type</label>
             <select value={form.workout_type} onChange={e => setForm(p => ({ ...p, workout_type: e.target.value }))}
-              className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none capitalize">
+              className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none">
               {WORKOUT_TYPES.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
             </select>
           </div>
@@ -251,7 +246,7 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
           <div className="flex flex-col gap-1">
             <label className="widget-label">Status</label>
             <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-              className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none capitalize">
+              className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none">
               <option value="planned">Planned</option>
               <option value="completed">Completed</option>
               <option value="skipped">Skipped</option>
@@ -265,7 +260,6 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
           </div>
         </div>
 
-        {/* Exercises */}
         {form.workout_type === 'strength' && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -273,17 +267,17 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
               <button onClick={addExercise} className="btn-connect text-[10px] py-1">+ add exercise</button>
             </div>
             {exercises.map((ex, exIdx) => (
-              <div key={ex.id} className="bg-surface-3 rounded-lg p-3 flex flex-col gap-2">
+              <div key={exIdx} className="bg-surface-3 rounded-lg p-3 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <input value={ex.exercise_name}
                     onChange={e => updateExercise(exIdx, 'exercise_name', e.target.value)}
-                    placeholder="Exercise name (e.g. Bench Press)"
+                    placeholder="Exercise name"
                     className="flex-1 bg-surface-2 border border-border rounded-md px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none" />
-                  <button onClick={() => removeExercise(exIdx)} className="text-accent-red text-xs hover:text-accent-red/80">✕</button>
+                  <button onClick={() => removeExercise(exIdx)} className="text-accent-red text-xs">✕</button>
                 </div>
                 <div className="flex flex-col gap-1">
                   <div className="grid grid-cols-4 gap-1 text-[10px] text-text-tertiary px-1">
-                    <span>Set</span><span>Reps</span><span>Weight (lbs)</span><span>Notes</span>
+                    <span>Set</span><span>Reps</span><span>Weight</span><span>Notes</span>
                   </div>
                   {ex.sets.map((set, setIdx) => (
                     <div key={setIdx} className="grid grid-cols-4 gap-1 items-center">
@@ -321,7 +315,6 @@ function WorkoutModal({ workout, onClose, onSave, onDelete }: {
   )
 }
 
-// ─── Weekly Workout Grid ──────────────────────────────────────
 function WorkoutGrid({ weekStart, workouts, onAdd, onEdit }: {
   weekStart: string
   workouts: Workout[]
@@ -333,12 +326,6 @@ function WorkoutGrid({ weekStart, workouts, onAdd, onEdit }: {
     d.setDate(d.getDate() + i)
     return d
   })
-
-  function statusColor(status: string) {
-    if (status === 'completed') return 'text-accent'
-    if (status === 'skipped') return 'text-accent-red'
-    return 'text-text-tertiary'
-  }
 
   function typeColor(type: string) {
     const colors: Record<string, string> = {
@@ -371,16 +358,14 @@ function WorkoutGrid({ weekStart, workouts, onAdd, onEdit }: {
                   className="rounded-md px-2 py-1.5 cursor-pointer hover:opacity-80 transition-opacity"
                   style={{ backgroundColor: typeColor(w.workout_type) + '22', borderLeft: `2px solid ${typeColor(w.workout_type)}` }}
                   onClick={e => { e.stopPropagation(); onEdit(w) }}>
-                  <div className={`text-[10px] font-medium ${statusColor(w.status)}`}>{w.name}</div>
-                  <div className="text-[9px] text-text-tertiary capitalize">{w.workout_type}{w.duration_minutes ? ` · ${w.duration_minutes}m` : ''}</div>
+                  <div className="text-[10px] font-medium text-text-primary">{w.name}</div>
+                  <div className="text-[9px] text-text-tertiary capitalize">
+                    {w.workout_type}{w.duration_minutes ? ` · ${w.duration_minutes}m` : ''}
+                  </div>
                   {w.status === 'completed' && <div className="text-[9px] text-accent">✓ done</div>}
+                  {w.status === 'skipped' && <div className="text-[9px] text-accent-red">skipped</div>}
                 </div>
               ))}
-              {dayWorkouts.length === 0 && (
-                <div className="flex items-center justify-center flex-1 opacity-0 hover:opacity-100 transition-opacity">
-                  <span className="text-[10px] text-text-dim">+ add</span>
-                </div>
-              )}
             </div>
           )
         })}
@@ -389,11 +374,76 @@ function WorkoutGrid({ weekStart, workouts, onAdd, onEdit }: {
   )
 }
 
-// ─── Fitness Chat ─────────────────────────────────────────────
+function WorkoutChatCard({ workout, onAdd }: {
+  workout: any
+  onAdd: (w: any) => Promise<void>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [added, setAdded] = useState(false)
+  const [adding, setAdding] = useState(false)
+
+  async function handleAdd() {
+    setAdding(true)
+    await onAdd(workout)
+    setAdded(true)
+    setAdding(false)
+  }
+
+  return (
+    <div className="w-full bg-surface-2 border border-border rounded-lg p-3 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <span className="text-xs font-medium text-text-primary">{workout.name}</span>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className="text-[10px] text-text-tertiary capitalize">{workout.workout_type}</span>
+            {workout.duration_minutes && (
+              <span className="text-[10px] text-text-tertiary">{workout.duration_minutes} min</span>
+            )}
+            <span className="text-[10px] text-text-dim font-mono">{workout.scheduled_date}</span>
+          </div>
+        </div>
+        <button onClick={() => setExpanded(!expanded)}
+          className="text-[10px] text-text-tertiary hover:text-text-secondary flex-shrink-0">
+          {expanded ? 'less' : 'expand'}
+        </button>
+      </div>
+
+      {expanded && workout.exercises?.length > 0 && (
+        <div className="flex flex-col gap-1.5 border-t border-border pt-2">
+          {workout.exercises.map((ex: any, i: number) => (
+            <div key={i} className="bg-surface-3 rounded-md p-2">
+              <span className="text-[11px] font-medium text-text-primary">{ex.exercise_name}</span>
+              {ex.sets?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {ex.sets.map((s: any, j: number) => (
+                    <span key={j} className="text-[10px] font-mono text-text-tertiary bg-surface-2 px-1.5 py-0.5 rounded">
+                      {s.reps}×{s.weight}lbs
+                    </span>
+                  ))}
+                </div>
+              )}
+              {ex.notes && <p className="text-[10px] text-text-dim mt-1">{ex.notes}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {workout.notes && (
+        <p className="text-[11px] text-text-secondary italic">{workout.notes}</p>
+      )}
+
+      <button onClick={handleAdd} disabled={added || adding}
+        className="btn-connect text-[10px] py-1 w-fit">
+        {adding ? 'Adding...' : added ? '✓ Added to planner' : '+ Add to planner'}
+      </button>
+    </div>
+  )
+}
+
 function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
   weekStart: string
   currentWorkouts: Workout[]
-  onWorkoutAdd: (workout: any) => void
+  onWorkoutAdd: (workout: any) => Promise<void>
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -434,18 +484,30 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
+
     const trimmedHistory = messages.slice(-10).map(m => ({ role: m.role, content: m.content }))
     const res = await fetch('/api/health/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input, week_start: weekStart, history: trimmedHistory, current_workouts: currentWorkouts }),
+      body: JSON.stringify({
+        message: input,
+        week_start: weekStart,
+        history: trimmedHistory,
+        current_workouts: currentWorkouts,
+      }),
     }).then(r => r.json())
-    setMessages(prev => [...prev, { role: 'assistant', content: res.text ?? '', workouts: res.workouts }])
+
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: res.text ?? '',
+      workouts: res.workouts ?? undefined,
+    }])
     setLoading(false)
   }
 
   return (
-    <div className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden" style={{ height: PANEL_HEIGHT }}>
+    <div className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden"
+      style={{ height: PANEL_HEIGHT * 2 + 16 }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">Fitness Coach</span>
       </div>
@@ -458,7 +520,11 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-            <div className={`max-w-[90%] px-3 py-2 rounded-lg text-xs leading-relaxed ${msg.role === 'user' ? 'bg-accent/10 text-text-primary border border-accent/20' : 'bg-surface-3 text-text-primary'}`}>
+            <div className={`max-w-[90%] px-3 py-2 rounded-lg text-xs leading-relaxed ${
+              msg.role === 'user'
+                ? 'bg-accent/10 text-text-primary border border-accent/20'
+                : 'bg-surface-3 text-text-primary'
+            }`}>
               {msg.content}
             </div>
             {msg.workouts && msg.workouts.map((workout, j) => (
@@ -468,7 +534,9 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
         ))}
         {loading && (
           <div className="flex items-start">
-            <div className="bg-surface-3 px-3 py-2 rounded-lg text-xs text-text-tertiary animate-pulse">Thinking...</div>
+            <div className="bg-surface-3 px-3 py-2 rounded-lg text-xs text-text-tertiary animate-pulse">
+              Thinking...
+            </div>
           </div>
         )}
         <div ref={bottomRef} />
@@ -478,62 +546,17 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
           <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
             placeholder="Plan workouts, ask about recovery, adjust program..."
-            className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-strong" />
-          <button onClick={send} disabled={loading || !input.trim()} className="btn-primary px-3 py-2 text-xs">Send</button>
+            className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-xs text-text-primary
+                       placeholder:text-text-tertiary focus:outline-none focus:border-border-strong" />
+          <button onClick={send} disabled={loading || !input.trim()} className="btn-primary px-3 py-2 text-xs">
+            Send
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Workout Chat Card ────────────────────────────────────────
-function WorkoutChatCard({ workout, onAdd }: { workout: any; onAdd: (w: any) => void }) {
-  const [expanded, setExpanded] = useState(false)
-  const [added, setAdded] = useState(false)
-
-  function handleAdd() {
-    onAdd(workout)
-    setAdded(true)
-  }
-
-  return (
-    <div className="w-full bg-surface-2 border border-border rounded-lg p-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <span className="text-xs font-medium text-text-primary">{workout.name}</span>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] text-text-tertiary capitalize">{workout.workout_type}</span>
-            {workout.duration_minutes && <span className="text-[10px] text-text-tertiary">{workout.duration_minutes} min</span>}
-            <span className="text-[10px] text-text-dim font-mono">{workout.scheduled_date}</span>
-          </div>
-        </div>
-        <button onClick={() => setExpanded(!expanded)} className="text-[10px] text-text-tertiary hover:text-text-secondary">
-          {expanded ? 'less' : 'expand'}
-        </button>
-      </div>
-
-      {expanded && workout.exercises?.map((ex: any, i: number) => (
-        <div key={i} className="bg-surface-3 rounded-md p-2">
-          <span className="text-[11px] font-medium text-text-primary">{ex.exercise_name}</span>
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {ex.sets?.map((s: any, j: number) => (
-              <span key={j} className="text-[10px] font-mono text-text-tertiary bg-surface-2 px-1.5 py-0.5 rounded">
-                {s.reps}×{s.weight}lbs
-              </span>
-            ))}
-          </div>
-          {ex.notes && <p className="text-[10px] text-text-dim mt-1">{ex.notes}</p>}
-        </div>
-      ))}
-
-      <button onClick={handleAdd} disabled={added} className="btn-connect text-[10px] py-1 w-fit">
-        {added ? '✓ Added to planner' : '+ Add to planner'}
-      </button>
-    </div>
-  )
-}
-
-// ─── Progress Panel ───────────────────────────────────────────
 function ProgressPanel({ completedWorkouts, metrics, bodyComp, latestAssessment }: {
   completedWorkouts: Workout[]
   metrics: Metric[]
@@ -544,7 +567,6 @@ function ProgressPanel({ completedWorkouts, metrics, bodyComp, latestAssessment 
   const [generatingAssessment, setGeneratingAssessment] = useState(false)
   const [assessment, setAssessment] = useState(latestAssessment)
 
-  // Build PRs
   const prs: Record<string, { weight: number; reps: number; date: string }> = {}
   for (const workout of completedWorkouts) {
     for (const ex of workout.workout_exercises ?? []) {
@@ -557,7 +579,6 @@ function ProgressPanel({ completedWorkouts, metrics, bodyComp, latestAssessment 
     }
   }
 
-  // Chart data
   const chartData = [...metrics].slice(0, 14).reverse().map(m => ({
     date: format(parseISO(m.metric_date), 'M/d'),
     recovery: m.recovery_score,
@@ -577,111 +598,116 @@ function ProgressPanel({ completedWorkouts, metrics, bodyComp, latestAssessment 
   }
 
   return (
-    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
-      <div className="px-4 py-3 border-b border-border flex-shrink-0 flex items-center gap-3">
-        {(['prs', 'trends', 'assessment'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`text-xs capitalize transition-colors ${activeTab === tab ? 'text-text-primary font-medium' : 'text-text-tertiary hover:text-text-secondary'}`}>
-            {tab === 'prs' ? 'PRs & Lifts' : tab === 'trends' ? 'Trends' : 'Assessment'}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4">
-        {activeTab === 'prs' && (
-          <div className="flex flex-col gap-2">
-            {Object.keys(prs).length === 0 && (
-              <div className="text-xs text-text-tertiary text-center py-8">
-                No strength history yet — log completed workouts to track PRs
-              </div>
-            )}
-            {KEY_LIFTS.filter(lift => prs[lift]).map(lift => (
-              <div key={lift} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-xs text-text-primary">{lift}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-accent">{prs[lift].weight} lbs × {prs[lift].reps}</span>
-                  <span className="text-[10px] text-text-dim font-mono">{prs[lift].date}</span>
+    <div className="flex flex-col gap-4">
+      {/* PRs */}
+      <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col"
+        style={{ height: PANEL_HEIGHT }}>
+        <div className="px-4 py-3 border-b border-border flex-shrink-0 flex items-center gap-4">
+          {(['prs', 'trends', 'assessment'] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className={`text-xs capitalize transition-colors ${
+                activeTab === tab ? 'text-text-primary font-medium' : 'text-text-tertiary hover:text-text-secondary'
+              }`}>
+              {tab === 'prs' ? 'PRs & Lifts' : tab === 'trends' ? 'Trends' : 'Assessment'}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === 'prs' && (
+            <div className="flex flex-col gap-1">
+              {Object.keys(prs).length === 0 && (
+                <div className="text-xs text-text-tertiary text-center py-8">
+                  No strength history yet — log completed workouts to track PRs
                 </div>
-              </div>
-            ))}
-            {Object.entries(prs).filter(([name]) => !KEY_LIFTS.includes(name)).map(([name, pr]) => (
-              <div key={name} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-xs text-text-primary">{name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-accent">{pr.weight} lbs × {pr.reps}</span>
-                  <span className="text-[10px] text-text-dim font-mono">{pr.date}</span>
+              )}
+              {KEY_LIFTS.filter(lift => prs[lift]).map(lift => (
+                <div key={lift} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <span className="text-xs text-text-primary">{lift}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-accent">{prs[lift].weight} lbs × {prs[lift].reps}</span>
+                    <span className="text-[10px] text-text-dim font-mono">{prs[lift].date}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === 'trends' && (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              {[
-                { label: 'Workouts (30d)', value: completedWorkouts.length },
-                { label: 'Avg Recovery', value: Math.round(metrics.reduce((s, m) => s + (m.recovery_score ?? 0), 0) / (metrics.length || 1)) },
-                { label: 'Avg HRV', value: Math.round(metrics.reduce((s, m) => s + (m.hrv ?? 0), 0) / (metrics.length || 1)) + 'ms' },
-              ].map(s => (
-                <div key={s.label} className="bg-surface-3 rounded-md p-2 text-center">
-                  <div className="text-sm font-mono text-text-primary">{s.value}</div>
-                  <div className="text-[10px] text-text-tertiary mt-0.5">{s.label}</div>
+              ))}
+              {Object.entries(prs).filter(([name]) => !KEY_LIFTS.includes(name)).map(([name, pr]) => (
+                <div key={name} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <span className="text-xs text-text-primary">{name}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-accent">{pr.weight} lbs × {pr.reps}</span>
+                    <span className="text-[10px] text-text-dim font-mono">{pr.date}</span>
+                  </div>
                 </div>
               ))}
             </div>
-            <MiniChart data={chartData} dataKey="recovery" color="#4ade80" label="Recovery" domain={[0, 100]} />
-            <MiniChart data={chartData} dataKey="hrv" color="#60a5fa" label="HRV (ms)" />
-            <MiniChart data={chartData} dataKey="strain" color="#fbbf24" label="Strain" domain={[0, 21]} />
-            {bodyComp.length > 0 && (
-              <div className="bg-surface-3 rounded-md p-3 flex flex-col gap-1">
-                <span className="widget-label">Body comp (latest)</span>
-                <div className="flex items-center gap-4 mt-1">
-                  <div>
-                    <div className="text-sm font-mono text-text-primary">{bodyComp[0]?.weight_lbs} lbs</div>
-                    <div className="text-[10px] text-text-tertiary">Weight</div>
+          )}
+
+          {activeTab === 'trends' && (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Workouts (30d)', value: completedWorkouts.length },
+                  { label: 'Avg Recovery', value: Math.round(metrics.reduce((s, m) => s + (m.recovery_score ?? 0), 0) / (metrics.length || 1)) },
+                  { label: 'Avg HRV', value: Math.round(metrics.reduce((s, m) => s + (m.hrv ?? 0), 0) / (metrics.length || 1)) + 'ms' },
+                ].map(s => (
+                  <div key={s.label} className="bg-surface-3 rounded-md p-2 text-center">
+                    <div className="text-sm font-mono text-text-primary">{s.value}</div>
+                    <div className="text-[10px] text-text-tertiary mt-0.5">{s.label}</div>
                   </div>
-                  <div>
-                    <div className="text-sm font-mono text-text-primary">{bodyComp[0]?.body_fat_pct}%</div>
-                    <div className="text-[10px] text-text-tertiary">Body fat</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-mono text-text-primary">{bodyComp[0]?.lean_mass_lbs} lbs</div>
-                    <div className="text-[10px] text-text-tertiary">Lean mass</div>
+                ))}
+              </div>
+              <MiniChart data={chartData} dataKey="recovery" color="#4ade80" label="Recovery" domain={[0, 100]} />
+              <MiniChart data={chartData} dataKey="hrv" color="#60a5fa" label="HRV (ms)" />
+              <MiniChart data={chartData} dataKey="strain" color="#fbbf24" label="Strain" domain={[0, 21]} />
+              {bodyComp.length > 0 && (
+                <div className="bg-surface-3 rounded-md p-3">
+                  <span className="widget-label">Body comp (latest)</span>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div>
+                      <div className="text-sm font-mono text-text-primary">{bodyComp[0]?.weight_lbs} lbs</div>
+                      <div className="text-[10px] text-text-tertiary">Weight</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-mono text-text-primary">{bodyComp[0]?.body_fat_pct}%</div>
+                      <div className="text-[10px] text-text-tertiary">Body fat</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-mono text-text-primary">{bodyComp[0]?.lean_mass_lbs} lbs</div>
+                      <div className="text-[10px] text-text-tertiary">Lean mass</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'assessment' && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-text-tertiary">
-                {assessment ? `Last generated: ${assessment.assessment_month}` : 'No assessment yet'}
-              </span>
-              <button onClick={generateAssessment} disabled={generatingAssessment} className="btn-connect text-[10px] py-1">
-                {generatingAssessment ? 'Generating...' : assessment ? 'Regenerate' : 'Generate assessment'}
-              </button>
+              )}
             </div>
-            {assessment ? (
-              <div className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
-                {assessment.content}
+          )}
+
+          {activeTab === 'assessment' && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-tertiary">
+                  {assessment ? `Last generated: ${assessment.assessment_month}` : 'No assessment yet'}
+                </span>
+                <button onClick={generateAssessment} disabled={generatingAssessment}
+                  className="btn-connect text-[10px] py-1">
+                  {generatingAssessment ? 'Generating...' : assessment ? 'Regenerate' : 'Generate'}
+                </button>
               </div>
-            ) : (
-              <div className="text-xs text-text-tertiary text-center py-8">
-                Generate your first monthly assessment to see a comprehensive review of your fitness, health, and nutrition.
-              </div>
-            )}
-          </div>
-        )}
+              {assessment ? (
+                <div className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
+                  {assessment.content}
+                </div>
+              ) : (
+                <div className="text-xs text-text-tertiary text-center py-8">
+                  Generate your first monthly assessment to see a comprehensive review of your fitness, health, and nutrition.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Whoop Panel (right 1/3) ──────────────────────────────────
 function WhoopPanel({ metrics }: { metrics: Metric[] }) {
   const latest = metrics[0] ?? null
   const [refreshing, setRefreshing] = useState(false)
@@ -702,12 +728,11 @@ function WhoopPanel({ metrics }: { metrics: Metric[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Today */}
       <div className="bg-surface-2 border border-border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="widget-label">Today · {latest?.metric_date ?? '—'}</span>
           <button onClick={refresh} disabled={refreshing}
-            className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors">
+            className="text-[10px] text-text-tertiary hover:text-text-secondary">
             {refreshing ? 'syncing...' : 'sync'}
           </button>
         </div>
@@ -743,7 +768,6 @@ function WhoopPanel({ metrics }: { metrics: Metric[] }) {
         )}
       </div>
 
-      {/* 7-day charts */}
       <div className="bg-surface-2 border border-border rounded-lg p-4 flex flex-col gap-3">
         <span className="widget-label">7-day trends</span>
         <MiniChart data={chartData.slice(-7)} dataKey="recovery" color="#4ade80" label="Recovery" domain={[0, 100]} />
@@ -751,12 +775,11 @@ function WhoopPanel({ metrics }: { metrics: Metric[] }) {
         <MiniChart data={chartData.slice(-7)} dataKey="strain" color="#fbbf24" label="Strain" domain={[0, 21]} />
       </div>
 
-      {/* 30-day history */}
       <div className="bg-surface-2 border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <span className="widget-label">30-day history</span>
         </div>
-        <div className="overflow-x-auto max-h-64 overflow-y-auto">
+        <div className="max-h-72 overflow-y-auto">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-surface-2">
               <tr className="border-b border-border">
@@ -785,7 +808,6 @@ function WhoopPanel({ metrics }: { metrics: Metric[] }) {
   )
 }
 
-// ─── Main ─────────────────────────────────────────────────────
 export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAssessment, bodyComp }: {
   metrics: Metric[]
   allWorkouts: Workout[]
@@ -797,21 +819,21 @@ export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAs
   const [workouts, setWorkouts] = useState<Workout[]>(allWorkouts)
   const [showWorkoutModal, setShowWorkoutModal] = useState<{ date: string; workout?: Workout } | null>(null)
 
-  const weekWorkouts = workouts.filter(w => {
-    const weekEnd = new Date(weekStart + 'T12:00:00')
-    weekEnd.setDate(weekEnd.getDate() + 6)
-    return w.scheduled_date >= weekStart && w.scheduled_date <= weekEnd.toISOString().split('T')[0]
-  })
+  const weekEnd = new Date(weekStart + 'T12:00:00')
+  weekEnd.setDate(weekEnd.getDate() + 6)
+  const weekEndStr = weekEnd.toISOString().split('T')[0]
+
+  const weekWorkouts = workouts.filter(w =>
+    w.scheduled_date >= weekStart && w.scheduled_date <= weekEndStr
+  )
 
   async function handleSaveWorkout(data: any) {
     const isEdit = !!data.id
-    const method = isEdit ? 'PATCH' : 'POST'
     const res = await fetch('/api/health/workouts', {
-      method,
+      method: isEdit ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }).then(r => r.json())
-
     if (res.data) {
       if (isEdit) {
         setWorkouts(prev => prev.map(w => w.id === res.data.id ? res.data : w))
@@ -847,12 +869,8 @@ export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAs
     setWeekStart(getWeekStart(d))
   }
 
-  const weekEnd = new Date(weekStart + 'T12:00:00')
-  weekEnd.setDate(weekEnd.getDate() + 6)
-
   return (
     <div className="flex flex-col gap-4 pb-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-text-primary font-medium">Health & Fitness</h2>
@@ -867,20 +885,14 @@ export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAs
         </div>
       </div>
 
-      {/* Main layout — 2/3 + 1/3 */}
       <div className="grid grid-cols-3 gap-4 items-start">
-
-        {/* Left 2/3 — Fitness */}
         <div className="col-span-2 flex flex-col gap-4">
-          {/* Weekly workout grid */}
           <WorkoutGrid
             weekStart={weekStart}
             workouts={weekWorkouts}
             onAdd={(date) => setShowWorkoutModal({ date })}
             onEdit={(workout) => setShowWorkoutModal({ date: workout.scheduled_date, workout })}
           />
-
-          {/* Chat + Progress */}
           <div className="grid grid-cols-2 gap-4">
             <FitnessChat
               weekStart={weekStart}
@@ -895,14 +907,11 @@ export function HealthClient({ metrics, allWorkouts, completedWorkouts, latestAs
             />
           </div>
         </div>
-
-        {/* Right 1/3 — Whoop */}
         <div className="col-span-1">
           <WhoopPanel metrics={metrics} />
         </div>
       </div>
 
-      {/* Workout modal */}
       {showWorkoutModal && (
         <WorkoutModal
           workout={showWorkoutModal.workout ?? { scheduled_date: showWorkoutModal.date }}

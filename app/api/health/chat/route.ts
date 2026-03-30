@@ -88,35 +88,59 @@ ${current_workouts?.length ? current_workouts.map((w: any) => `${w.scheduled_dat
 
 WEEK: ${week_start}
 
+IMPORTANT: The week starts on Sunday ${week_start}. When generating workouts, use these exact dates:
+- Sunday: ${week_start}
+- Monday: ${new Date(new Date(week_start + 'T12:00:00').getTime() + 1 * 86400000).toISOString().split('T')[0]}
+- Tuesday: ${new Date(new Date(week_start + 'T12:00:00').getTime() + 2 * 86400000).toISOString().split('T')[0]}
+- Wednesday: ${new Date(new Date(week_start + 'T12:00:00').getTime() + 3 * 86400000).toISOString().split('T')[0]}
+- Thursday: ${new Date(new Date(week_start + 'T12:00:00').getTime() + 4 * 86400000).toISOString().split('T')[0]}
+- Friday: ${new Date(new Date(week_start + 'T12:00:00').getTime() + 5 * 86400000).toISOString().split('T')[0]}
+- Saturday: ${new Date(new Date(week_start + 'T12:00:00').getTime() + 6 * 86400000).toISOString().split('T')[0]}
+
+Always use these exact date strings when setting scheduled_date in workout JSON.
+
 TRAINING PROFILE:
 - Primary: Strength training (squat, bench, OHP, rows, Bulgarian split squats, cables, dumbbells)
 - Secondary: Running, cycling, walking, tennis, yoga
 - Cardio tracked via Whoop. Strength logged manually.
 
-When generating a workout, return it wrapped in <workout> tags as valid JSON:
-<workout>
-{
-  "name": "Workout Name",
-  "workout_type": "strength",
-  "scheduled_date": "YYYY-MM-DD",
-  "duration_minutes": 60,
-  "notes": "Coach notes",
-  "exercises": [
-    {
-      "exercise_name": "Bench Press",
-      "sets": [
-        {"set": 1, "reps": 8, "weight": 135, "notes": "warm up"},
-        {"set": 2, "reps": 8, "weight": 185},
-        {"set": 3, "reps": 8, "weight": 185}
-      ],
-      "superset_group": null,
-      "notes": "Focus on controlled eccentric"
-    }
-  ]
-}
-</workout>
+CRITICAL: When generating workouts, you MUST return ALL workouts in a SINGLE <workouts> block as a JSON array. Never split workouts across multiple messages. If asked for a full week, return all days in one response.
 
-Recovery < 34 = deload or rest. Recovery 34-67 = moderate. Recovery > 67 = train hard. Be specific with weights based on history. If no history, ask about current working weights first.`
+Format:
+<workouts>
+[
+  {
+    "name": "Monday Upper Push",
+    "workout_type": "strength",
+    "scheduled_date": "YYYY-MM-DD",
+    "duration_minutes": 60,
+    "notes": "Coach notes here",
+    "exercises": [
+      {
+        "exercise_name": "Bench Press",
+        "sets": [
+          {"set": 1, "reps": 10, "weight": 135},
+          {"set": 2, "reps": 8, "weight": 185},
+          {"set": 3, "reps": 8, "weight": 185},
+          {"set": 4, "reps": 6, "weight": 195}
+        ],
+        "superset_group": null,
+        "notes": "Control the eccentric"
+      }
+    ]
+  },
+  {
+    "name": "Tuesday Rest",
+    "workout_type": "mobility",
+    "scheduled_date": "YYYY-MM-DD",
+    "duration_minutes": 20,
+    "notes": "Active recovery",
+    "exercises": []
+  }
+]
+</workouts>
+
+Recovery < 34 = deload or rest. Recovery 34-67 = moderate. Recovery > 67 = train hard. Be specific with weights based on history. If no history exists, ask about current working weights before generating.`
 
   try {
     const trimmedHistory = history.slice(-10)
@@ -134,7 +158,7 @@ Recovery < 34 = deload or rest. Recovery 34-67 = moderate. Recovery > 67 = train
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: systemPrompt,
         messages,
       }),
@@ -143,16 +167,17 @@ Recovery < 34 = deload or rest. Recovery 34-67 = moderate. Recovery > 67 = train
     const aiData = await res.json()
     const responseText = aiData.content?.[0]?.text ?? ''
 
-    const workoutMatch = responseText.match(/<workout>([\s\S]*?)<\/workout>/)
-    let workout = null
+    const workoutsMatch = responseText.match(/<workouts>([\s\S]*?)<\/workouts>/)
+    let workouts = null
     let cleanText = responseText
 
-    if (workoutMatch) {
+    if (workoutsMatch) {
       try {
-        workout = JSON.parse(workoutMatch[1].trim())
-        cleanText = responseText.replace(/<workout>[\s\S]*?<\/workout>/, '').trim()
-      } catch {
-        workout = null
+        workouts = JSON.parse(workoutsMatch[1].trim())
+        cleanText = responseText.replace(/<workouts>[\s\S]*?<\/workouts>/, '').trim()
+      } catch (e) {
+        console.error('Failed to parse workouts JSON:', e)
+        workouts = null
       }
     }
 
@@ -169,7 +194,7 @@ Recovery < 34 = deload or rest. Recovery 34-67 = moderate. Recovery > 67 = train
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id,week_start' })
 
-    return NextResponse.json({ text: cleanText, workout })
+    return NextResponse.json({ text: cleanText, workouts })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
