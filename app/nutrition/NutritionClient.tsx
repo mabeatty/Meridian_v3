@@ -1195,7 +1195,7 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       <div className="grid grid-cols-3 gap-4 items-start">
 
         {/* Left — Chat full height matching both stacked panels + gap */}
-        <div style={{ height: PANEL_HEIGHT * 2 + 16 }}>
+        <div style={{ height: PANEL_HEIGHT * 2 + 16 }} className="flex flex-col"> 
           <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} plannerEntries={plannerEntries} fullHeight />
         </div>
 
