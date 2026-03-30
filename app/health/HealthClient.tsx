@@ -39,7 +39,7 @@ interface Workout {
 interface Message {
   role: 'user' | 'assistant'
   content: string
-  workout?: any
+  workouts?: any[]
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -408,14 +408,14 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
         const msgs = (res.messages ?? []).filter((m: any) => m.role === 'user' || m.role === 'assistant')
         const parsed = msgs.map((m: any) => {
           if (m.role === 'assistant') {
-            const match = m.content.match(/<workout>([\s\S]*?)<\/workout>/)
-            let workout = null
+            const match = m.content.match(/<workouts>([\s\S]*?)<\/workouts>/)
+            let workouts = null
             let content = m.content
             if (match) {
-              try { workout = JSON.parse(match[1].trim()) } catch {}
-              content = m.content.replace(/<workout>[\s\S]*?<\/workout>/, '').trim()
+              try { workouts = JSON.parse(match[1].trim()) } catch {}
+              content = m.content.replace(/<workouts>[\s\S]*?<\/workouts>/, '').trim()
             }
-            return { ...m, content, workout }
+            return { ...m, content, workouts }
           }
           return m
         })
@@ -440,7 +440,7 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: input, week_start: weekStart, history: trimmedHistory, current_workouts: currentWorkouts }),
     }).then(r => r.json())
-    setMessages(prev => [...prev, { role: 'assistant', content: res.text ?? '', workout: res.workout }])
+    setMessages(prev => [...prev, { role: 'assistant', content: res.text ?? '', workouts: res.workouts }])
     setLoading(false)
   }
 
@@ -461,9 +461,9 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
             <div className={`max-w-[90%] px-3 py-2 rounded-lg text-xs leading-relaxed ${msg.role === 'user' ? 'bg-accent/10 text-text-primary border border-accent/20' : 'bg-surface-3 text-text-primary'}`}>
               {msg.content}
             </div>
-            {msg.workout && (
-              <WorkoutChatCard workout={msg.workout} onAdd={onWorkoutAdd} />
-            )}
+            {msg.workouts && msg.workouts.map((workout, j) => (
+              <WorkoutChatCard key={j} workout={workout} onAdd={onWorkoutAdd} />
+            ))}
           </div>
         ))}
         {loading && (
