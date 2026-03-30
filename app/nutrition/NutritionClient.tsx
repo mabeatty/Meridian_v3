@@ -41,6 +41,22 @@ interface PlannerEntry {
   }
 }
 
+interface SavedRecipe {
+  id: string
+  name: string
+  description: string
+  meal_type: string[]
+  servings: number
+  instructions: string
+  tags: string[]
+  total_calories: number
+  total_protein: number
+  total_carbs: number
+  total_fat: number
+  rating: number | null
+  recipe_ingredients: any[]
+}
+
 interface GroceryItem {
   id: string
   name: string
@@ -71,6 +87,7 @@ interface NutritionProfile {
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack']
 const CATEGORIES = ['Produce', 'Protein', 'Dairy', 'Grains', 'Pantry', 'Frozen', 'Other']
+const PANEL_HEIGHT = 600
 
 function getWeekStart(date: Date): string {
   const d = startOfWeek(date, { weekStartsOn: 0 })
@@ -145,7 +162,6 @@ function ProfileModal({ profile, onSave, onClose }: {
           <h3 className="text-text-primary font-medium">Nutrition profile</h3>
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-lg">×</button>
         </div>
-
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Height (inches)', key: 'height_inches', placeholder: '70' },
@@ -158,18 +174,14 @@ function ProfileModal({ profile, onSave, onClose }: {
           ].map(f => (
             <div key={f.key} className="flex flex-col gap-1">
               <label className="widget-label">{f.label}</label>
-              <input
-                type="text"
-                value={(form as any)[f.key]}
+              <input type="text" value={(form as any)[f.key]}
                 onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
                 className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
-                           placeholder:text-text-tertiary focus:outline-none focus:border-border-strong font-mono"
-              />
+                           placeholder:text-text-tertiary focus:outline-none focus:border-border-strong font-mono" />
             </div>
           ))}
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1">
             <label className="widget-label">Goal</label>
@@ -192,7 +204,6 @@ function ProfileModal({ profile, onSave, onClose }: {
             </select>
           </div>
         </div>
-
         <div className="flex flex-col gap-1">
           <label className="widget-label">Weekly context</label>
           <input value={form.weekly_context} onChange={e => setForm(p => ({ ...p, weekly_context: e.target.value }))}
@@ -200,7 +211,6 @@ function ProfileModal({ profile, onSave, onClose }: {
             className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
                        placeholder:text-text-tertiary focus:outline-none focus:border-border-strong" />
         </div>
-
         {[
           { label: 'Health conditions', field: 'health_conditions', inputKey: 'condition', placeholder: 'e.g. ADHD' },
           { label: 'Dietary restrictions', field: 'dietary_restrictions', inputKey: 'restriction', placeholder: 'e.g. no dairy' },
@@ -209,20 +219,11 @@ function ProfileModal({ profile, onSave, onClose }: {
         ].map(f => (
           <div key={f.field} className="flex flex-col gap-1.5">
             <label className="widget-label">{f.label}</label>
-            <input
-              value={(inputs as any)[f.inputKey]}
+            <input value={(inputs as any)[f.inputKey]}
               onChange={e => setInputs(p => ({ ...p, [f.inputKey]: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addTag(f.field, (inputs as any)[f.inputKey])
-                  setInputs(p => ({ ...p, [f.inputKey]: '' }))
-                }
-              }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(f.field, (inputs as any)[f.inputKey]); setInputs(p => ({ ...p, [f.inputKey]: '' })) } }}
               placeholder={`${f.placeholder} + Enter`}
-              className="bg-surface-3 border border-border rounded-md px-3 py-1.5 text-xs text-text-primary
-                         placeholder:text-text-tertiary focus:outline-none"
-            />
+              className="bg-surface-3 border border-border rounded-md px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none" />
             {((form as any)[f.field] as string[]).length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {((form as any)[f.field] as string[]).map((v: string) => (
@@ -235,7 +236,6 @@ function ProfileModal({ profile, onSave, onClose }: {
             )}
           </div>
         ))}
-
         <button onClick={handleSave} disabled={saving} className="btn-primary">
           {saving ? 'Saving...' : 'Save profile'}
         </button>
@@ -245,7 +245,7 @@ function ProfileModal({ profile, onSave, onClose }: {
 }
 
 // ─── Recipe Card in Chat ──────────────────────────────────────
-function RecipeCard({ recipe, onAdd }: {
+function ChatRecipeCard({ recipe, onAdd }: {
   recipe: GeneratedRecipe
   onAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
 }) {
@@ -265,16 +265,10 @@ function RecipeCard({ recipe, onAdd }: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: recipe.name,
-        description: recipe.description,
-        meal_type: recipe.meal_type,
-        servings: recipe.servings,
-        instructions: recipe.instructions,
-        tags: recipe.tags,
-        total_calories: recipe.estimated_calories,
-        total_protein: recipe.estimated_protein,
-        total_carbs: recipe.estimated_carbs,
-        total_fat: recipe.estimated_fat,
+        name: recipe.name, description: recipe.description, meal_type: recipe.meal_type,
+        servings: recipe.servings, instructions: recipe.instructions, tags: recipe.tags,
+        total_calories: recipe.estimated_calories, total_protein: recipe.estimated_protein,
+        total_carbs: recipe.estimated_carbs, total_fat: recipe.estimated_fat,
         ingredients: recipe.ingredients.map(ing => ({ ...ing, calories: 0, protein: 0, carbs: 0, fat: 0 })),
       }),
     })
@@ -290,10 +284,6 @@ function RecipeCard({ recipe, onAdd }: {
       body: JSON.stringify({ recipe_name: recipe.name, rating: r }),
     })
     setRatingSubmitted(true)
-  }
-
-  function toggleDay(day: string) {
-    setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
   }
 
   function handleAdd() {
@@ -315,44 +305,36 @@ function RecipeCard({ recipe, onAdd }: {
               <span className="text-[10px] text-accent-amber font-mono">{recipe.estimated_fat}g F</span>
             </div>
           </div>
-          <button onClick={() => setExpanded(!expanded)}
-            className="text-[10px] text-text-tertiary hover:text-text-secondary flex-shrink-0">
+          <button onClick={() => setExpanded(!expanded)} className="text-[10px] text-text-tertiary hover:text-text-secondary flex-shrink-0">
             {expanded ? 'less' : 'expand'}
           </button>
         </div>
-
         {expanded && (
           <div className="mt-3 flex flex-col gap-2 border-t border-border pt-2">
-            <p className="text-sm text-text-secondary">{recipe.description}</p>
+            <p className="text-[11px] text-text-secondary">{recipe.description}</p>
             <div>
               <span className="widget-label">Ingredients</span>
               {recipe.ingredients.map((ing, i) => (
-                <div key={i} className="text-sm text-text-secondary mt-0.5">
-                  {ing.quantity} {ing.unit} {ing.name}
-                </div>
+                <div key={i} className="text-[11px] text-text-secondary mt-0.5">{ing.quantity} {ing.unit} {ing.name}</div>
               ))}
             </div>
             <div>
               <span className="widget-label">Instructions</span>
               {recipe.instructions.split('\n').filter(Boolean).map((step, i) => (
-                <p key={i} className="text-sm text-text-secondary mt-0.5">{step}</p>
+                <p key={i} className="text-[11px] text-text-secondary mt-0.5">{step}</p>
               ))}
             </div>
           </div>
         )}
-
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <button onClick={() => setShowAddModal(true)} className="btn-connect text-[10px] py-1 px-2">
-            + Add to planner
-          </button>
+          <button onClick={() => setShowAddModal(true)} className="btn-connect text-[10px] py-1 px-2">+ Add to planner</button>
           <button onClick={saveToLibrary} disabled={saving || saved} className="btn-connect text-[10px] py-1 px-2">
             {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save to library'}
           </button>
           {!ratingSubmitted ? (
             <div className="flex items-center gap-0.5 ml-auto">
               {[1,2,3,4,5].map(n => (
-                <button key={n} onClick={() => submitRating(n)}
-                  className="text-sm text-text-dim hover:text-accent-amber transition-colors">★</button>
+                <button key={n} onClick={() => submitRating(n)} className="text-sm text-text-dim hover:text-accent-amber transition-colors">★</button>
               ))}
             </div>
           ) : (
@@ -369,50 +351,37 @@ function RecipeCard({ recipe, onAdd }: {
               <button onClick={() => setShowAddModal(false)} className="text-text-tertiary text-lg">×</button>
             </div>
             <p className="text-xs text-text-secondary font-medium">{recipe.name}</p>
-
             <div className="flex flex-col gap-1">
               <label className="widget-label">Days (select multiple)</label>
               <div className="flex flex-wrap gap-1.5">
                 {DAYS.map(day => (
-                  <button key={day} onClick={() => toggleDay(day)}
-                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-                      selectedDays.includes(day)
-                        ? 'border-accent text-accent bg-accent/10'
-                        : 'border-border text-text-tertiary hover:border-border-strong'
-                    }`}>
+                  <button key={day}
+                    onClick={() => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${selectedDays.includes(day) ? 'border-accent text-accent bg-accent/10' : 'border-border text-text-tertiary hover:border-border-strong'}`}>
                     {day.slice(0, 3)}
                   </button>
                 ))}
               </div>
             </div>
-
             <div className="flex flex-col gap-1">
               <label className="widget-label">Meal</label>
               <div className="flex gap-1.5 flex-wrap">
                 {MEALS.map(meal => (
                   <button key={meal} onClick={() => setSelectedMeal(meal)}
-                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors capitalize ${
-                      selectedMeal === meal
-                        ? 'border-accent text-accent bg-accent/10'
-                        : 'border-border text-text-tertiary hover:border-border-strong'
-                    }`}>
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors capitalize ${selectedMeal === meal ? 'border-accent text-accent bg-accent/10' : 'border-border text-text-tertiary hover:border-border-strong'}`}>
                     {meal}
                   </button>
                 ))}
               </div>
             </div>
-
             <div className="flex flex-col gap-1">
               <label className="widget-label">Servings per day</label>
               <div className="flex items-center gap-2">
-                <button onClick={() => setServings(Math.max(1, servings - 1))}
-                  className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors">−</button>
+                <button onClick={() => setServings(Math.max(1, servings - 1))} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors">−</button>
                 <span className="text-sm font-mono text-text-primary w-6 text-center">{servings}</span>
-                <button onClick={() => setServings(servings + 1)}
-                  className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors">+</button>
+                <button onClick={() => setServings(servings + 1)} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors">+</button>
               </div>
             </div>
-
             <button onClick={handleAdd} disabled={selectedDays.length === 0} className="btn-primary">
               Add to {selectedDays.length > 0 ? `${selectedDays.length} day${selectedDays.length !== 1 ? 's' : ''}` : 'planner'}
             </button>
@@ -470,11 +439,12 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
     setLoading(true)
 
     const history = messages.map(m => ({ role: m.role, content: m.content }))
+    const trimmedHistory = history.slice(-10)
 
     const res = await fetch('/api/nutrition/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input, week_start: weekStart, history, planner_entries: plannerEntries }),
+      body: JSON.stringify({ message: input, week_start: weekStart, history: trimmedHistory, planner_entries: plannerEntries }),
     }).then(r => r.json())
 
     const assistantMsg: Message = {
@@ -487,58 +457,41 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
   }
 
   return (
-    <div className="flex flex-col h-full bg-surface-2 border border-border rounded-lg overflow-hidden">
+    <div className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden" style={{ height: PANEL_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">Nutrition Assistant</span>
       </div>
-
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
         {loadingHistory && <div className="text-xs text-text-tertiary text-center">Loading conversation...</div>}
-
         {!loadingHistory && messages.length === 0 && (
           <div className="text-xs text-text-tertiary text-center py-4 leading-relaxed">
             Start by telling me what you need — "generate 3 high protein dinners for meal prep" or "what should I eat today given my recovery score?"
           </div>
         )}
-
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-            <div className={`max-w-[90%] px-3 py-2 rounded-lg text-xs leading-relaxed ${
-              msg.role === 'user'
-                ? 'bg-accent/10 text-text-primary border border-accent/20'
-                : 'bg-surface-3 text-text-primary'
-            }`}>
+            <div className={`max-w-[90%] px-3 py-2 rounded-lg text-xs leading-relaxed ${msg.role === 'user' ? 'bg-accent/10 text-text-primary border border-accent/20' : 'bg-surface-3 text-text-primary'}`}>
               {msg.content}
             </div>
             {msg.recipes && msg.recipes.map((recipe, j) => (
-              <RecipeCard key={j} recipe={recipe} onAdd={onRecipeAdd} />
+              <ChatRecipeCard key={j} recipe={recipe} onAdd={onRecipeAdd} />
             ))}
           </div>
         ))}
-
         {loading && (
           <div className="flex items-start">
-            <div className="bg-surface-3 px-3 py-2 rounded-lg text-xs text-text-tertiary animate-pulse">
-              Thinking...
-            </div>
+            <div className="bg-surface-3 px-3 py-2 rounded-lg text-xs text-text-tertiary animate-pulse">Thinking...</div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
-
       <div className="px-3 py-3 border-t border-border flex-shrink-0">
         <div className="flex items-center gap-2">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
+          <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
             placeholder="Ask for recipes, meal ideas, adjustments..."
-            className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-xs text-text-primary
-                       placeholder:text-text-tertiary focus:outline-none focus:border-border-strong"
-          />
-          <button onClick={send} disabled={loading || !input.trim()} className="btn-primary px-3 py-2 text-xs">
-            Send
-          </button>
+            className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-strong" />
+          <button onClick={send} disabled={loading || !input.trim()} className="btn-primary px-3 py-2 text-xs">Send</button>
         </div>
       </div>
     </div>
@@ -546,11 +499,10 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
 }
 
 // ─── Weekly Planner Grid ──────────────────────────────────────
-function PlannerGrid({ weekStart, entries, onRemove, onCellClick }: {
+function PlannerGrid({ weekStart, entries, onRemove }: {
   weekStart: string
   entries: PlannerEntry[]
   onRemove: (id: string) => void
-  onCellClick: (day: string, meal: string) => void
 }) {
   const weekDates = DAYS.map((_, i) => {
     const d = new Date(weekStart + 'T12:00:00')
@@ -573,7 +525,6 @@ function PlannerGrid({ weekStart, entries, onRemove, onCellClick }: {
           </div>
         ))}
       </div>
-
       {MEALS.map(meal => (
         <div key={meal} className="grid grid-cols-8 border-b border-border last:border-0">
           <div className="px-3 py-3 flex items-center">
@@ -582,23 +533,16 @@ function PlannerGrid({ weekStart, entries, onRemove, onCellClick }: {
           {DAYS.map(day => {
             const entry = getEntry(day, meal)
             return (
-              <div key={day}
-                className="border-l border-border px-2 py-2 min-h-[60px] cursor-pointer hover:bg-surface-3 transition-colors"
-                onClick={() => !entry && onCellClick(day, meal)}>
+              <div key={day} className="border-l border-border px-2 py-2 min-h-[60px]">
                 {entry ? (
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-sm text-text-primary leading-snug font-medium">{entry.recipes.name}</span>
+                    <span className="text-[11px] text-text-primary leading-snug font-medium">{entry.recipes.name}</span>
                     <span className="text-[9px] text-text-tertiary font-mono">
                       {Math.round(entry.recipes.total_calories * entry.servings)} cal · {entry.servings}srv
                     </span>
-                    <button onClick={e => { e.stopPropagation(); onRemove(entry.id) }}
-                      className="text-[9px] text-accent-red hover:text-accent-red/80 w-fit mt-0.5">remove</button>
+                    <button onClick={() => onRemove(entry.id)} className="text-[9px] text-accent-red hover:text-accent-red/80 w-fit mt-0.5">remove</button>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <span className="text-[10px] text-text-dim opacity-0 hover:opacity-100">+ add</span>
-                  </div>
-                )}
+                ) : null}
               </div>
             )
           })}
@@ -641,7 +585,7 @@ function NutritionSummary({ entries, profile }: {
   }
 
   return (
-    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">Nutrition Summary</span>
       </div>
@@ -659,19 +603,11 @@ function NutritionSummary({ entries, profile }: {
           <tbody>
             {dailyTotals.map(d => (
               <tr key={d.day} className="border-b border-border last:border-0 hover:bg-surface-3 transition-colors">
-                <td className="px-3 py-2 text-text-secondary">{d.day.slice(0, 3)}</td>
-                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.calories, profile?.target_calories ?? null)}`}>
-                  {d.calories > 0 ? d.calories : '—'}
-                </td>
-                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.protein, profile?.target_protein ?? null)}`}>
-                  {d.protein > 0 ? d.protein : '—'}
-                </td>
-                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.carbs, profile?.target_carbs ?? null)}`}>
-                  {d.carbs > 0 ? d.carbs : '—'}
-                </td>
-                <td className={`px-2 py-2 text-right font-mono ${pctColor(d.fat, profile?.target_fat ?? null)}`}>
-                  {d.fat > 0 ? d.fat : '—'}
-                </td>
+                <td className="px-3 py-2.5 text-text-secondary">{d.day.slice(0, 3)}</td>
+                <td className={`px-2 py-2.5 text-right font-mono ${pctColor(d.calories, profile?.target_calories ?? null)}`}>{d.calories > 0 ? d.calories : '—'}</td>
+                <td className={`px-2 py-2.5 text-right font-mono ${pctColor(d.protein, profile?.target_protein ?? null)}`}>{d.protein > 0 ? d.protein : '—'}</td>
+                <td className={`px-2 py-2.5 text-right font-mono ${pctColor(d.carbs, profile?.target_carbs ?? null)}`}>{d.carbs > 0 ? d.carbs : '—'}</td>
+                <td className={`px-2 py-2.5 text-right font-mono ${pctColor(d.fat, profile?.target_fat ?? null)}`}>{d.fat > 0 ? d.fat : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -699,7 +635,7 @@ function NutritionSummary({ entries, profile }: {
   )
 }
 
-// ─── Recipes Panel ────────────────────────────────────────────
+// ─── Recipes This Week Panel ──────────────────────────────────
 function RecipesPanel({ entries, onUpdateServings, onRemove }: {
   entries: PlannerEntry[]
   onUpdateServings: (id: string, servings: number) => void
@@ -713,7 +649,7 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
   }, {} as Record<string, { recipe: any; entries: PlannerEntry[] }>)
 
   return (
-    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">This week's recipes</span>
       </div>
@@ -734,16 +670,12 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
             </div>
             {recipeEntries.map(entry => (
               <div key={entry.id} className="flex items-center justify-between py-1">
-                <span className="text-sm text-text-secondary capitalize">
-                  {entry.day_of_week.slice(0, 3)} · {entry.meal_type}
-                </span>
+                <span className="text-[11px] text-text-secondary capitalize">{entry.day_of_week.slice(0, 3)} · {entry.meal_type}</span>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => onUpdateServings(entry.id, Math.max(1, entry.servings - 1))}
-                      className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4 transition-colors">−</button>
-                    <span className="text-sm font-mono text-text-primary w-4 text-center">{entry.servings}</span>
-                    <button onClick={() => onUpdateServings(entry.id, entry.servings + 1)}
-                      className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4 transition-colors">+</button>
+                    <button onClick={() => onUpdateServings(entry.id, Math.max(1, entry.servings - 1))} className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4">−</button>
+                    <span className="text-[11px] font-mono text-text-primary w-4 text-center">{entry.servings}</span>
+                    <button onClick={() => onUpdateServings(entry.id, entry.servings + 1)} className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4">+</button>
                   </div>
                   <button onClick={() => onRemove(entry.id)} className="text-[10px] text-accent-red hover:text-accent-red/80">✕</button>
                 </div>
@@ -752,6 +684,220 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── Saved Recipe Library Panel ───────────────────────────────
+function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
+  recipes: SavedRecipe[]
+  planId: string | null
+  onAddToPlanner: (recipe: any, days: string[], meal: string, servings: number) => void
+}) {
+  const [mealFilter, setMealFilter] = useState('')
+  const [proteinFilter, setProteinFilter] = useState('')
+  const [cuisineFilter, setCuisineFilter] = useState('')
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState<SavedRecipe | null>(null)
+  const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [selectedMeal, setSelectedMeal] = useState('dinner')
+  const [servings, setServings] = useState(1)
+  const [localRecipes, setLocalRecipes] = useState(recipes)
+  const [ratingMap, setRatingMap] = useState<Record<string, number>>({})
+
+  const PROTEINS = ['beef', 'chicken', 'fish', 'pork', 'turkey', 'shrimp', 'eggs', 'tofu', 'lamb']
+  const CUISINES = ['american', 'asian', 'mexican', 'italian', 'mediterranean', 'indian', 'japanese', 'thai', 'greek']
+
+  function detectProtein(recipe: SavedRecipe): string {
+    const text = (recipe.name + ' ' + recipe.tags?.join(' ') + ' ' + recipe.recipe_ingredients?.map((i: any) => i.name).join(' ')).toLowerCase()
+    return PROTEINS.find(p => text.includes(p)) ?? ''
+  }
+
+  function detectCuisine(recipe: SavedRecipe): string {
+    const text = (recipe.name + ' ' + recipe.tags?.join(' ') + ' ' + recipe.description).toLowerCase()
+    return CUISINES.find(c => text.includes(c)) ?? ''
+  }
+
+  const filtered = localRecipes.filter(r => {
+    if (mealFilter && !r.meal_type?.includes(mealFilter)) return false
+    if (proteinFilter && detectProtein(r) !== proteinFilter) return false
+    if (cuisineFilter && detectCuisine(r) !== cuisineFilter) return false
+    return true
+  })
+
+  async function rateRecipe(id: string, rating: number) {
+    await fetch('/api/nutrition/recipes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, rating }),
+    })
+    setLocalRecipes(prev => prev.map(r => r.id === id ? { ...r, rating } : r))
+    setRatingMap(prev => ({ ...prev, [id]: rating }))
+  }
+
+  async function deleteRecipe(id: string) {
+    if (!confirm('Delete this recipe?')) return
+    await fetch(`/api/nutrition/recipes?id=${id}`, { method: 'DELETE' })
+    setLocalRecipes(prev => prev.filter(r => r.id !== id))
+  }
+
+  function handleAdd() {
+    if (!showAddModal) return
+    onAddToPlanner({
+      ...showAddModal,
+      estimated_calories: showAddModal.total_calories,
+      estimated_protein: showAddModal.total_protein,
+      estimated_carbs: showAddModal.total_carbs,
+      estimated_fat: showAddModal.total_fat,
+      id: showAddModal.id,
+    }, selectedDays, selectedMeal, servings)
+    setShowAddModal(null)
+    setSelectedDays([])
+    setServings(1)
+  }
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
+      <div className="px-4 py-3 border-b border-border flex-shrink-0">
+        <span className="widget-label">Recipe library ({localRecipes.length})</span>
+      </div>
+
+      {/* Filters */}
+      <div className="px-3 py-2 border-b border-border flex-shrink-0 flex flex-wrap gap-1.5">
+        <select value={mealFilter} onChange={e => setMealFilter(e.target.value)}
+          className="bg-surface-3 border border-border rounded-md px-2 py-1 text-[10px] text-text-primary focus:outline-none">
+          <option value="">All meals</option>
+          {MEALS.map(m => <option key={m} value={m} className="capitalize">{m}</option>)}
+        </select>
+        <select value={proteinFilter} onChange={e => setProteinFilter(e.target.value)}
+          className="bg-surface-3 border border-border rounded-md px-2 py-1 text-[10px] text-text-primary focus:outline-none">
+          <option value="">All proteins</option>
+          {PROTEINS.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
+        </select>
+        <select value={cuisineFilter} onChange={e => setCuisineFilter(e.target.value)}
+          className="bg-surface-3 border border-border rounded-md px-2 py-1 text-[10px] text-text-primary focus:outline-none">
+          <option value="">All cuisines</option>
+          {CUISINES.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
+        </select>
+        {(mealFilter || proteinFilter || cuisineFilter) && (
+          <button onClick={() => { setMealFilter(''); setProteinFilter(''); setCuisineFilter('') }}
+            className="text-[10px] text-text-tertiary hover:text-text-secondary">clear</button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 && (
+          <div className="px-4 py-6 text-xs text-text-tertiary text-center">
+            {localRecipes.length === 0 ? 'No saved recipes yet — generate and save recipes from the chat' : 'No recipes match your filters'}
+          </div>
+        )}
+        {filtered.map(recipe => (
+          <div key={recipe.id} className="border-b border-border last:border-0">
+            <div className="px-4 py-3 hover:bg-surface-3 transition-colors">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(expanded === recipe.id ? null : recipe.id)}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-text-primary">{recipe.name}</span>
+                    {recipe.meal_type?.map(t => (
+                      <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-3 text-text-tertiary capitalize">{t}</span>
+                    ))}
+                    {recipe.rating && (
+                      <span className="text-[9px] text-accent-amber">{'★'.repeat(recipe.rating)}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] text-text-tertiary font-mono">{recipe.total_calories} cal</span>
+                    <span className="text-[10px] text-accent font-mono">{recipe.total_protein}g P</span>
+                    <span className="text-[10px] text-accent-blue font-mono">{recipe.total_carbs}g C</span>
+                    <span className="text-[10px] text-accent-amber font-mono">{recipe.total_fat}g F</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => { setShowAddModal(recipe); setSelectedMeal(recipe.meal_type?.[0] ?? 'dinner') }}
+                    className="text-[10px] text-accent hover:text-accent/80 transition-colors">+ plan</button>
+                  <button onClick={() => setExpanded(expanded === recipe.id ? null : recipe.id)}
+                    className="text-[10px] text-text-tertiary hover:text-text-secondary">
+                    {expanded === recipe.id ? '↑' : '↓'}
+                  </button>
+                </div>
+              </div>
+
+              {expanded === recipe.id && (
+                <div className="mt-3 flex flex-col gap-2 border-t border-border pt-2">
+                  <p className="text-[11px] text-text-secondary">{recipe.description}</p>
+                  <div>
+                    <span className="widget-label">Ingredients</span>
+                    {recipe.recipe_ingredients?.map((ing: any, i: number) => (
+                      <div key={i} className="text-[11px] text-text-secondary mt-0.5">{ing.quantity} {ing.unit} {ing.name}</div>
+                    ))}
+                  </div>
+                  <div>
+                    <span className="widget-label">Instructions</span>
+                    {recipe.instructions?.split('\n').filter(Boolean).map((step, i) => (
+                      <p key={i} className="text-[11px] text-text-secondary mt-0.5">{step}</p>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map(n => (
+                        <button key={n} onClick={() => rateRecipe(recipe.id, n)}
+                          className={`text-sm transition-colors ${n <= (ratingMap[recipe.id] ?? recipe.rating ?? 0) ? 'text-accent-amber' : 'text-text-dim hover:text-accent-amber'}`}>★</button>
+                      ))}
+                    </div>
+                    <button onClick={() => deleteRecipe(recipe.id)} className="text-[10px] text-accent-red hover:text-accent-red/80">delete</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showAddModal && (
+        <Modal onClose={() => setShowAddModal(null)}>
+          <div className="p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-text-primary text-sm font-medium">Add to planner</h3>
+              <button onClick={() => setShowAddModal(null)} className="text-text-tertiary text-lg">×</button>
+            </div>
+            <p className="text-xs text-text-secondary font-medium">{showAddModal.name}</p>
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Days (select multiple)</label>
+              <div className="flex flex-wrap gap-1.5">
+                {DAYS.map(day => (
+                  <button key={day}
+                    onClick={() => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${selectedDays.includes(day) ? 'border-accent text-accent bg-accent/10' : 'border-border text-text-tertiary hover:border-border-strong'}`}>
+                    {day.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Meal</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {MEALS.map(meal => (
+                  <button key={meal} onClick={() => setSelectedMeal(meal)}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors capitalize ${selectedMeal === meal ? 'border-accent text-accent bg-accent/10' : 'border-border text-text-tertiary hover:border-border-strong'}`}>
+                    {meal}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Servings per day</label>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setServings(Math.max(1, servings - 1))} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm">−</button>
+                <span className="text-sm font-mono text-text-primary w-6 text-center">{servings}</span>
+                <button onClick={() => setServings(servings + 1)} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm">+</button>
+              </div>
+            </div>
+            <button onClick={handleAdd} disabled={selectedDays.length === 0} className="btn-primary">
+              Add to {selectedDays.length > 0 ? `${selectedDays.length} day${selectedDays.length !== 1 ? 's' : ''}` : 'planner'}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -788,7 +934,6 @@ function GroceryPanel({ weekStart, entries }: {
   async function generateList() {
     setGenerating(true)
     const ingredientMap: Record<string, { quantity: number; unit: string; category: string }> = {}
-
     for (const entry of entries) {
       const scale = entry.servings
       for (const ing of entry.recipes.recipe_ingredients ?? []) {
@@ -796,30 +941,19 @@ function GroceryPanel({ weekStart, entries }: {
         if (ingredientMap[key]) {
           ingredientMap[key].quantity += (ing.quantity ?? 0) * scale
         } else {
-          ingredientMap[key] = {
-            quantity: (ing.quantity ?? 0) * scale,
-            unit: ing.unit ?? '',
-            category: categorize(ing.name),
-          }
+          ingredientMap[key] = { quantity: (ing.quantity ?? 0) * scale, unit: ing.unit ?? '', category: categorize(ing.name) }
         }
       }
     }
-
     const newItems = Object.entries(ingredientMap).map(([key, val]) => ({
-      name: key.split('::')[0],
-      quantity: Math.round(val.quantity * 10) / 10,
-      unit: val.unit,
-      category: val.category,
-      checked: false,
-      custom: false,
+      name: key.split('::')[0], quantity: Math.round(val.quantity * 10) / 10,
+      unit: val.unit, category: val.category, checked: false, custom: false,
     }))
-
     const res = await fetch('/api/nutrition/grocery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ week_start: weekStart, items: newItems }),
     }).then(r => r.json())
-
     setItems(res.data ?? [])
     setGenerating(false)
   }
@@ -840,20 +974,11 @@ function GroceryPanel({ weekStart, entries }: {
 
   async function addCustomItem() {
     if (!newItem.trim()) return
-    const existingNonCustom = items.filter(i => !i.custom).map(i => ({
-      name: i.name, quantity: i.quantity, unit: i.unit,
-      category: i.category, checked: i.checked, custom: false,
-    }))
+    const existing = items.filter(i => !i.custom).map(i => ({ name: i.name, quantity: i.quantity, unit: i.unit, category: i.category, checked: i.checked, custom: false }))
     const res = await fetch('/api/nutrition/grocery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        week_start: weekStart,
-        items: [...existingNonCustom, {
-          name: newItem.trim(), quantity: null, unit: null,
-          category: newCategory, checked: false, custom: true,
-        }]
-      }),
+      body: JSON.stringify({ week_start: weekStart, items: [...existing, { name: newItem.trim(), quantity: null, unit: null, category: newCategory, checked: false, custom: true }] }),
     }).then(r => r.json())
     setItems(res.data ?? [])
     setNewItem('')
@@ -866,6 +991,17 @@ function GroceryPanel({ weekStart, entries }: {
     setItems(prev => prev.filter(i => !i.checked))
   }
 
+  function copyList() {
+    const text = CATEGORIES
+      .filter(cat => items.some(i => i.category === cat))
+      .map(cat => {
+        const catItems = items.filter(i => i.category === cat)
+        return `${cat}:\n${catItems.map(i => `  • ${i.quantity != null ? `${i.quantity} ${i.unit} ` : ''}${i.name}`).join('\n')}`
+      }).join('\n\n')
+    navigator.clipboard.writeText(text)
+    alert('Grocery list copied — paste into Apple Notes')
+  }
+
   const grouped = CATEGORIES.reduce((acc, cat) => {
     const catItems = items.filter(i => i.category === cat)
     if (catItems.length) acc[cat] = catItems
@@ -873,27 +1009,25 @@ function GroceryPanel({ weekStart, entries }: {
   }, {} as Record<string, GroceryItem[]>)
 
   return (
-    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0 flex items-center justify-between">
         <span className="widget-label">Grocery list</span>
         <div className="flex items-center gap-2">
           {items.some(i => i.checked) && (
-            <button onClick={clearPurchased} className="text-[10px] text-text-tertiary hover:text-text-secondary">
-              clear purchased
-            </button>
+            <button onClick={clearPurchased} className="text-[10px] text-text-tertiary hover:text-text-secondary">clear purchased</button>
+          )}
+          {items.length > 0 && (
+            <button onClick={copyList} className="btn-connect text-[10px] py-1">copy list</button>
           )}
           <button onClick={generateList} disabled={generating || entries.length === 0} className="btn-connect text-[10px] py-1">
             {generating ? 'Generating...' : 'Generate from plan'}
           </button>
         </div>
       </div>
-
       <div className="flex-1 overflow-y-auto">
         {loading && <div className="px-4 py-4 text-xs text-text-tertiary">Loading...</div>}
         {!loading && items.length === 0 && (
-          <div className="px-4 py-6 text-xs text-text-tertiary text-center">
-            Add recipes to your planner then click "Generate from plan"
-          </div>
+          <div className="px-4 py-6 text-xs text-text-tertiary text-center">Add recipes to your planner then click "Generate from plan"</div>
         )}
         {Object.entries(grouped).map(([category, catItems]) => (
           <div key={category}>
@@ -902,8 +1036,7 @@ function GroceryPanel({ weekStart, entries }: {
             </div>
             {catItems.map(item => (
               <div key={item.id} className="flex items-center gap-2 px-4 py-2 border-b border-border last:border-0 hover:bg-surface-3 transition-colors">
-                <input type="checkbox" checked={item.checked}
-                  onChange={e => toggleCheck(item.id, e.target.checked)} className="accent-accent flex-shrink-0" />
+                <input type="checkbox" checked={item.checked} onChange={e => toggleCheck(item.id, e.target.checked)} className="accent-accent flex-shrink-0" />
                 <span className={`flex-1 text-xs ${item.checked ? 'line-through text-text-tertiary' : 'text-text-primary'}`}>
                   {item.quantity != null ? `${item.quantity} ${item.unit} ` : ''}{item.name}
                 </span>
@@ -912,13 +1045,11 @@ function GroceryPanel({ weekStart, entries }: {
             ))}
           </div>
         ))}
-
         <div className="px-3 py-3 border-t border-border flex items-center gap-2">
           <input value={newItem} onChange={e => setNewItem(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addCustomItem()}
             placeholder="Add item + Enter"
-            className="flex-1 bg-surface-3 border border-border rounded-md px-2 py-1.5 text-xs text-text-primary
-                       placeholder:text-text-tertiary focus:outline-none" />
+            className="flex-1 bg-surface-3 border border-border rounded-md px-2 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none" />
           <select value={newCategory} onChange={e => setNewCategory(e.target.value)}
             className="bg-surface-3 border border-border rounded-md px-2 py-1.5 text-xs text-text-primary focus:outline-none">
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -940,6 +1071,7 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
   const [loadingPlan, setLoadingPlan] = useState(true)
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState(initialProfile)
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>(initialRecipes)
 
   useEffect(() => {
     setLoadingPlan(true)
@@ -954,7 +1086,14 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       .finally(() => setLoadingPlan(false))
   }, [weekStart])
 
-  async function handleAddToPlanner(recipe: GeneratedRecipe, days: string[], meal: string, servings: number) {
+  // Refresh saved recipes when page loads
+  useEffect(() => {
+    fetch('/api/nutrition/recipes')
+      .then(r => r.json())
+      .then(res => { if (res.data) setSavedRecipes(res.data) })
+  }, [])
+
+  async function handleAddToPlanner(recipe: any, days: string[], meal: string, servings: number) {
     if (!planId) return
 
     let recipeId = recipe.id
@@ -963,20 +1102,17 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: recipe.name,
-          description: recipe.description,
-          meal_type: recipe.meal_type,
-          servings: recipe.servings,
-          instructions: recipe.instructions,
-          tags: recipe.tags,
-          total_calories: recipe.estimated_calories,
-          total_protein: recipe.estimated_protein,
-          total_carbs: recipe.estimated_carbs,
-          total_fat: recipe.estimated_fat,
-          ingredients: recipe.ingredients.map(ing => ({ ...ing, calories: 0, protein: 0, carbs: 0, fat: 0 })),
+          name: recipe.name, description: recipe.description, meal_type: recipe.meal_type,
+          servings: recipe.servings, instructions: recipe.instructions, tags: recipe.tags,
+          total_calories: recipe.estimated_calories ?? recipe.total_calories,
+          total_protein: recipe.estimated_protein ?? recipe.total_protein,
+          total_carbs: recipe.estimated_carbs ?? recipe.total_carbs,
+          total_fat: recipe.estimated_fat ?? recipe.total_fat,
+          ingredients: recipe.ingredients?.map((ing: any) => ({ ...ing, calories: 0, protein: 0, carbs: 0, fat: 0 })) ?? [],
         }),
       }).then(r => r.json())
       recipeId = saveRes.data?.id
+      if (saveRes.data) setSavedRecipes(prev => [saveRes.data, ...prev])
     }
 
     if (!recipeId) return
@@ -1043,33 +1179,33 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
         </div>
       </div>
 
-      {/* Weekly planner grid */}
+      {/* Weekly planner grid — full width */}
       <div className="flex-shrink-0">
         {loadingPlan ? (
           <div className="bg-surface-2 border border-border rounded-lg h-48 flex items-center justify-center">
             <span className="text-xs text-text-tertiary">Loading planner...</span>
           </div>
         ) : (
-          <PlannerGrid
-            weekStart={weekStart}
-            entries={plannerEntries}
-            onRemove={handleRemoveEntry}
-            onCellClick={() => {}}
-          />
+          <PlannerGrid weekStart={weekStart} entries={plannerEntries} onRemove={handleRemoveEntry} />
         )}
       </div>
 
-      {/* Bottom panels */}
-      <div className="grid grid-cols-3 gap-4" style={{ height: '700px' }}>
+      {/* Bottom: 3 columns */}
+      <div className="grid grid-cols-3 gap-4">
+
+        {/* Left — Chat only */}
         <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} plannerEntries={plannerEntries} />
-        <NutritionSummary entries={plannerEntries} profile={profile} />
-        <div className="flex flex-col gap-4 min-h-0">
-          <div className="flex-1 min-h-0">
-            <RecipesPanel entries={plannerEntries} onUpdateServings={handleUpdateServings} onRemove={handleRemoveEntry} />
-          </div>
-          <div className="flex-1 min-h-0">
-            <GroceryPanel weekStart={weekStart} entries={plannerEntries} />
-          </div>
+
+        {/* Middle — Nutrition summary on top, Grocery list below */}
+        <div className="flex flex-col gap-4">
+          <NutritionSummary entries={plannerEntries} profile={profile} />
+          <GroceryPanel weekStart={weekStart} entries={plannerEntries} />
+        </div>
+
+        {/* Right — This week's recipes on top, Recipe library below */}
+        <div className="flex flex-col gap-4">
+          <RecipesPanel entries={plannerEntries} onUpdateServings={handleUpdateServings} onRemove={handleRemoveEntry} />
+          <RecipeLibraryPanel recipes={savedRecipes} planId={planId} onAddToPlanner={handleAddToPlanner} />
         </div>
       </div>
 
