@@ -515,7 +515,7 @@ function FitnessChat({ weekStart, currentWorkouts, onWorkoutAdd }: {
         {loadingHistory && <div className="text-xs text-text-tertiary text-center">Loading...</div>}
         {!loadingHistory && messages.length === 0 && (
           <div className="text-xs text-text-tertiary text-center py-4 leading-relaxed">
-            Ask me to plan your workouts — "plan my week based on my recovery" or "give me a push day for today"
+            Ask me to plan your workouts — plan my week based on my recovery, or ask for a push day for today.
           </div>
         )}
         {messages.map((msg, i) => (

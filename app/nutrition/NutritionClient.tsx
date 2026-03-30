@@ -454,7 +454,7 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries, onRecipeSaved }: {
         {loadingHistory && <div className="text-xs text-text-tertiary text-center">Loading conversation...</div>}
         {!loadingHistory && messages.length === 0 && (
           <div className="text-xs text-text-tertiary text-center py-4 leading-relaxed">
-            Start by telling me what you need — "generate 3 high protein dinners for meal prep" or "what should I eat today given my recovery score?"
+            Start by telling me what you need — &ldquo;generate 3 high protein dinners for meal prep&rdquo; or &ldquo;what should I eat today given my recovery score?&rdquo;
           </div>
         )}
         {messages.map((msg, i) => (
@@ -637,7 +637,7 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
   return (
     <div className="bg-surface-2 border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: PANEL_HEIGHT }}>
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
-        <span className="widget-label">This week's recipes</span>
+        <span className="widget-label">This week&apos;s recipes</span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {Object.keys(unique).length === 0 && (
