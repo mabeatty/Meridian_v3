@@ -397,6 +397,7 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
   weekStart: string
   onRecipeAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
   plannerEntries: PlannerEntry[]
+  fullHeight?: boolean
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -1191,10 +1192,12 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       </div>
 
       {/* Bottom: 3 columns */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4 items-start">
 
-        {/* Left — Chat only */}
-        <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} plannerEntries={plannerEntries} />
+        {/* Left — Chat full height matching both stacked panels + gap */}
+        <div style={{ height: PANEL_HEIGHT * 2 + 16 }}>
+          <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} plannerEntries={plannerEntries} fullHeight />
+        </div>
 
         {/* Middle — Nutrition summary on top, Grocery list below */}
         <div className="flex flex-col gap-4">
