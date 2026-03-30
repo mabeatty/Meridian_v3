@@ -906,13 +906,16 @@ function GroceryPanel({ weekStart, entries }: {
     setGenerating(true)
     const ingredientMap: Record<string, { quantity: number; unit: string; category: string }> = {}
     for (const entry of entries) {
-      const scale = entry.servings
+      const recipeServings = (entry.recipes as any).servings ?? 1
+      const plannerServings = entry.servings
+      const scale = plannerServings / recipeServings // per-serving scale
       for (const ing of entry.recipes.recipe_ingredients ?? []) {
         const key = `${ing.name.toLowerCase()}::${ing.unit ?? ''}`
+        const scaledQty = Math.round((ing.quantity ?? 0) * scale * 10) / 10
         if (ingredientMap[key]) {
-          ingredientMap[key].quantity += (ing.quantity ?? 0) * scale
+          ingredientMap[key].quantity += scaledQty
         } else {
-          ingredientMap[key] = { quantity: (ing.quantity ?? 0) * scale, unit: ing.unit ?? '', category: categorize(ing.name) }
+          ingredientMap[key] = { quantity: scaledQty, unit: ing.unit ?? '', category: categorize(ing.name) }
         }
       }
     }
