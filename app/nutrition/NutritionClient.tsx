@@ -1064,7 +1064,18 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 
   async function handleAddToPlanner(recipe: any, days: string[], meal: string, servings: number) {
     if (!planId) return
+  
     let recipeId = recipe.id
+  
+    // Check if already in library by name to prevent duplicates
+    if (!recipeId) {
+      const existing = savedRecipes.find(r => r.name === recipe.name)
+      if (existing) {
+        recipeId = existing.id
+      }
+    }
+  
+    // Only save to library if truly new
     if (!recipeId) {
       const saveRes = await fetch('/api/nutrition/recipes', {
         method: 'POST',
@@ -1082,7 +1093,9 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       recipeId = saveRes.data?.id
       if (saveRes.data) setSavedRecipes(prev => [saveRes.data, ...prev])
     }
+  
     if (!recipeId) return
+  
     for (const day of days) {
       const res = await fetch('/api/nutrition/planner', {
         method: 'POST',
