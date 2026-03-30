@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { format, startOfWeek } from 'date-fns'
 
-// ─── Types ───────────────────────────────────────────────────
 interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -88,6 +87,7 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack']
 const CATEGORIES = ['Produce', 'Protein', 'Dairy', 'Grains', 'Pantry', 'Frozen', 'Other']
 const PANEL_HEIGHT = 600
+const CHAT_HEIGHT = PANEL_HEIGHT * 2 + 16 // matches two stacked panels + gap
 
 function getWeekStart(date: Date): string {
   const d = startOfWeek(date, { weekStartsOn: 0 })
@@ -105,7 +105,6 @@ function Modal({ onClose, children }: { onClose: () => void; children: React.Rea
   )
 }
 
-// ─── Profile Modal ────────────────────────────────────────────
 function ProfileModal({ profile, onSave, onClose }: {
   profile: any
   onSave: (p: any) => Promise<void>
@@ -177,8 +176,7 @@ function ProfileModal({ profile, onSave, onClose }: {
               <input type="text" value={(form as any)[f.key]}
                 onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
-                className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
-                           placeholder:text-text-tertiary focus:outline-none focus:border-border-strong font-mono" />
+                className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-strong font-mono" />
             </div>
           ))}
         </div>
@@ -208,8 +206,7 @@ function ProfileModal({ profile, onSave, onClose }: {
           <label className="widget-label">Weekly context</label>
           <input value={form.weekly_context} onChange={e => setForm(p => ({ ...p, weekly_context: e.target.value }))}
             placeholder="e.g. heavy training week, traveling..."
-            className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary
-                       placeholder:text-text-tertiary focus:outline-none focus:border-border-strong" />
+            className="bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-strong" />
         </div>
         {[
           { label: 'Health conditions', field: 'health_conditions', inputKey: 'condition', placeholder: 'e.g. ADHD' },
@@ -244,7 +241,6 @@ function ProfileModal({ profile, onSave, onClose }: {
   )
 }
 
-// ─── Recipe Card in Chat ──────────────────────────────────────
 function ChatRecipeCard({ recipe, onAdd }: {
   recipe: GeneratedRecipe
   onAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
@@ -342,7 +338,6 @@ function ChatRecipeCard({ recipe, onAdd }: {
           )}
         </div>
       </div>
-
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
           <div className="p-5 flex flex-col gap-4">
@@ -377,9 +372,9 @@ function ChatRecipeCard({ recipe, onAdd }: {
             <div className="flex flex-col gap-1">
               <label className="widget-label">Servings per day</label>
               <div className="flex items-center gap-2">
-                <button onClick={() => setServings(Math.max(1, servings - 1))} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors">−</button>
+                <button onClick={() => setServings(Math.max(1, servings - 1))} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm">−</button>
                 <span className="text-sm font-mono text-text-primary w-6 text-center">{servings}</span>
-                <button onClick={() => setServings(servings + 1)} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm hover:bg-surface-4 transition-colors">+</button>
+                <button onClick={() => setServings(servings + 1)} className="w-7 h-7 rounded-md bg-surface-3 text-text-primary text-sm">+</button>
               </div>
             </div>
             <button onClick={handleAdd} disabled={selectedDays.length === 0} className="btn-primary">
@@ -392,12 +387,10 @@ function ChatRecipeCard({ recipe, onAdd }: {
   )
 }
 
-// ─── Chat Panel ───────────────────────────────────────────────
 function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
   weekStart: string
   onRecipeAdd: (recipe: GeneratedRecipe, days: string[], meal: string, servings: number) => void
   plannerEntries: PlannerEntry[]
-  fullHeight?: boolean
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -438,31 +431,25 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
-
-    const history = messages.map(m => ({ role: m.role, content: m.content }))
-    const trimmedHistory = history.slice(-10)
-
+    const trimmedHistory = messages.slice(-10).map(m => ({ role: m.role, content: m.content }))
     const res = await fetch('/api/nutrition/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: input, week_start: weekStart, history: trimmedHistory, planner_entries: plannerEntries }),
     }).then(r => r.json())
-
-    const assistantMsg: Message = {
-      role: 'assistant',
-      content: res.text ?? '',
-      recipes: res.recipes ?? undefined,
-    }
-    setMessages(prev => [...prev, assistantMsg])
+    setMessages(prev => [...prev, { role: 'assistant', content: res.text ?? '', recipes: res.recipes ?? undefined }])
     setLoading(false)
   }
 
   return (
-    <div className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden" style={{ height: PANEL_HEIGHT }}>
+    <div
+      className="flex flex-col bg-surface-2 border border-border rounded-lg overflow-hidden"
+      style={{ height: CHAT_HEIGHT }}
+    >
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">Nutrition Assistant</span>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 min-h-0">
         {loadingHistory && <div className="text-xs text-text-tertiary text-center">Loading conversation...</div>}
         {!loadingHistory && messages.length === 0 && (
           <div className="text-xs text-text-tertiary text-center py-4 leading-relaxed">
@@ -499,7 +486,6 @@ function ChatPanel({ weekStart, onRecipeAdd, plannerEntries }: {
   )
 }
 
-// ─── Weekly Planner Grid ──────────────────────────────────────
 function PlannerGrid({ weekStart, entries, onRemove }: {
   weekStart: string
   entries: PlannerEntry[]
@@ -553,7 +539,6 @@ function PlannerGrid({ weekStart, entries, onRemove }: {
   )
 }
 
-// ─── Nutrition Summary ────────────────────────────────────────
 function NutritionSummary({ entries, profile }: {
   entries: PlannerEntry[]
   profile: NutritionProfile | null
@@ -636,7 +621,6 @@ function NutritionSummary({ entries, profile }: {
   )
 }
 
-// ─── Recipes This Week Panel ──────────────────────────────────
 function RecipesPanel({ entries, onUpdateServings, onRemove }: {
   entries: PlannerEntry[]
   onUpdateServings: (id: string, servings: number) => void
@@ -656,9 +640,7 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
       </div>
       <div className="flex-1 overflow-y-auto">
         {Object.keys(unique).length === 0 && (
-          <div className="px-4 py-6 text-xs text-text-tertiary text-center">
-            No recipes planned — use the chat to generate and add recipes
-          </div>
+          <div className="px-4 py-6 text-xs text-text-tertiary text-center">No recipes planned — use the chat to generate and add recipes</div>
         )}
         {Object.values(unique).map(({ recipe, entries: recipeEntries }) => (
           <div key={recipe.id} className="px-4 py-3 border-b border-border last:border-0">
@@ -674,9 +656,9 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
                 <span className="text-[11px] text-text-secondary capitalize">{entry.day_of_week.slice(0, 3)} · {entry.meal_type}</span>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => onUpdateServings(entry.id, Math.max(1, entry.servings - 1))} className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4">−</button>
+                    <button onClick={() => onUpdateServings(entry.id, Math.max(1, entry.servings - 1))} className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs">−</button>
                     <span className="text-[11px] font-mono text-text-primary w-4 text-center">{entry.servings}</span>
-                    <button onClick={() => onUpdateServings(entry.id, entry.servings + 1)} className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs hover:bg-surface-4">+</button>
+                    <button onClick={() => onUpdateServings(entry.id, entry.servings + 1)} className="w-5 h-5 rounded bg-surface-3 text-text-primary text-xs">+</button>
                   </div>
                   <button onClick={() => onRemove(entry.id)} className="text-[10px] text-accent-red hover:text-accent-red/80">✕</button>
                 </div>
@@ -689,7 +671,6 @@ function RecipesPanel({ entries, onUpdateServings, onRemove }: {
   )
 }
 
-// ─── Saved Recipe Library Panel ───────────────────────────────
 function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
   recipes: SavedRecipe[]
   planId: string | null
@@ -704,7 +685,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
   const [selectedMeal, setSelectedMeal] = useState('dinner')
   const [servings, setServings] = useState(1)
   const [localRecipes, setLocalRecipes] = useState(recipes)
-  const [ratingMap, setRatingMap] = useState<Record<string, number>>({})
 
   const PROTEINS = ['beef', 'chicken', 'fish', 'pork', 'turkey', 'shrimp', 'eggs', 'tofu', 'lamb']
   const CUISINES = ['american', 'asian', 'mexican', 'italian', 'mediterranean', 'indian', 'japanese', 'thai', 'greek']
@@ -733,7 +713,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
       body: JSON.stringify({ id, rating }),
     })
     setLocalRecipes(prev => prev.map(r => r.id === id ? { ...r, rating } : r))
-    setRatingMap(prev => ({ ...prev, [id]: rating }))
   }
 
   async function deleteRecipe(id: string) {
@@ -750,7 +729,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
       estimated_protein: showAddModal.total_protein,
       estimated_carbs: showAddModal.total_carbs,
       estimated_fat: showAddModal.total_fat,
-      id: showAddModal.id,
     }, selectedDays, selectedMeal, servings)
     setShowAddModal(null)
     setSelectedDays([])
@@ -762,8 +740,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
         <span className="widget-label">Recipe library ({localRecipes.length})</span>
       </div>
-
-      {/* Filters */}
       <div className="px-3 py-2 border-b border-border flex-shrink-0 flex flex-wrap gap-1.5">
         <select value={mealFilter} onChange={e => setMealFilter(e.target.value)}
           className="bg-surface-3 border border-border rounded-md px-2 py-1 text-[10px] text-text-primary focus:outline-none">
@@ -785,7 +761,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
             className="text-[10px] text-text-tertiary hover:text-text-secondary">clear</button>
         )}
       </div>
-
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 && (
           <div className="px-4 py-6 text-xs text-text-tertiary text-center">
@@ -802,9 +777,7 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
                     {recipe.meal_type?.map(t => (
                       <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-3 text-text-tertiary capitalize">{t}</span>
                     ))}
-                    {recipe.rating && (
-                      <span className="text-[9px] text-accent-amber">{'★'.repeat(recipe.rating)}</span>
-                    )}
+                    {recipe.rating && <span className="text-[9px] text-accent-amber">{'★'.repeat(recipe.rating)}</span>}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] text-text-tertiary font-mono">{recipe.total_calories} cal</span>
@@ -815,14 +788,13 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={() => { setShowAddModal(recipe); setSelectedMeal(recipe.meal_type?.[0] ?? 'dinner') }}
-                    className="text-[10px] text-accent hover:text-accent/80 transition-colors">+ plan</button>
+                    className="text-[10px] text-accent hover:text-accent/80">+ plan</button>
                   <button onClick={() => setExpanded(expanded === recipe.id ? null : recipe.id)}
                     className="text-[10px] text-text-tertiary hover:text-text-secondary">
                     {expanded === recipe.id ? '↑' : '↓'}
                   </button>
                 </div>
               </div>
-
               {expanded === recipe.id && (
                 <div className="mt-3 flex flex-col gap-2 border-t border-border pt-2">
                   <p className="text-[11px] text-text-secondary">{recipe.description}</p>
@@ -842,7 +814,7 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
                     <div className="flex items-center gap-0.5">
                       {[1,2,3,4,5].map(n => (
                         <button key={n} onClick={() => rateRecipe(recipe.id, n)}
-                          className={`text-sm transition-colors ${n <= (ratingMap[recipe.id] ?? recipe.rating ?? 0) ? 'text-accent-amber' : 'text-text-dim hover:text-accent-amber'}`}>★</button>
+                          className={`text-sm transition-colors ${n <= (recipe.rating ?? 0) ? 'text-accent-amber' : 'text-text-dim hover:text-accent-amber'}`}>★</button>
                       ))}
                     </div>
                     <button onClick={() => deleteRecipe(recipe.id)} className="text-[10px] text-accent-red hover:text-accent-red/80">delete</button>
@@ -853,7 +825,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
           </div>
         ))}
       </div>
-
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(null)}>
           <div className="p-5 flex flex-col gap-4">
@@ -903,7 +874,6 @@ function RecipeLibraryPanel({ recipes, planId, onAddToPlanner }: {
   )
 }
 
-// ─── Grocery Panel ────────────────────────────────────────────
 function GroceryPanel({ weekStart, entries }: {
   weekStart: string
   entries: PlannerEntry[]
@@ -1061,7 +1031,6 @@ function GroceryPanel({ weekStart, entries }: {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────
 export function NutritionClient({ initialProfile, initialRecipes }: {
   initialProfile: any
   initialRecipes: any[]
@@ -1087,7 +1056,6 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       .finally(() => setLoadingPlan(false))
   }, [weekStart])
 
-  // Refresh saved recipes when page loads
   useEffect(() => {
     fetch('/api/nutrition/recipes')
       .then(r => r.json())
@@ -1096,7 +1064,6 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
 
   async function handleAddToPlanner(recipe: any, days: string[], meal: string, servings: number) {
     if (!planId) return
-
     let recipeId = recipe.id
     if (!recipeId) {
       const saveRes = await fetch('/api/nutrition/recipes', {
@@ -1115,9 +1082,7 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       recipeId = saveRes.data?.id
       if (saveRes.data) setSavedRecipes(prev => [saveRes.data, ...prev])
     }
-
     if (!recipeId) return
-
     for (const day of days) {
       const res = await fetch('/api/nutrition/planner', {
         method: 'POST',
@@ -1158,10 +1123,10 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
   weekEnd.setDate(weekEnd.getDate() + 6)
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4 pb-8">
 
       {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-text-primary font-medium">Nutrition Planner</h2>
           <p className="text-text-tertiary text-xs mt-0.5">
@@ -1181,38 +1146,37 @@ export function NutritionClient({ initialProfile, initialRecipes }: {
       </div>
 
       {/* Weekly planner grid — full width */}
-      <div className="flex-shrink-0">
-        {loadingPlan ? (
-          <div className="bg-surface-2 border border-border rounded-lg h-48 flex items-center justify-center">
-            <span className="text-xs text-text-tertiary">Loading planner...</span>
-          </div>
-        ) : (
-          <PlannerGrid weekStart={weekStart} entries={plannerEntries} onRemove={handleRemoveEntry} />
-        )}
-      </div>
+      {loadingPlan ? (
+        <div className="bg-surface-2 border border-border rounded-lg h-48 flex items-center justify-center">
+          <span className="text-xs text-text-tertiary">Loading planner...</span>
+        </div>
+      ) : (
+        <PlannerGrid weekStart={weekStart} entries={plannerEntries} onRemove={handleRemoveEntry} />
+      )}
 
-      {/* Bottom: 3 columns */}
+      {/* Bottom 3 columns — chat is full height on left */}
       <div className="grid grid-cols-3 gap-4 items-start">
 
-        {/* Left — Chat full height matching both stacked panels + gap */}
-        <div style={{ height: PANEL_HEIGHT * 2 + 16 }} className="flex flex-col"> 
-          <ChatPanel weekStart={weekStart} onRecipeAdd={handleAddToPlanner} plannerEntries={plannerEntries} fullHeight />
-        </div>
+        {/* Left — Chat, tall */}
+        <ChatPanel
+          weekStart={weekStart}
+          onRecipeAdd={handleAddToPlanner}
+          plannerEntries={plannerEntries}
+        />
 
-        {/* Middle — Nutrition summary on top, Grocery list below */}
+        {/* Middle — Nutrition summary + Grocery list stacked */}
         <div className="flex flex-col gap-4">
           <NutritionSummary entries={plannerEntries} profile={profile} />
           <GroceryPanel weekStart={weekStart} entries={plannerEntries} />
         </div>
 
-        {/* Right — This week's recipes on top, Recipe library below */}
+        {/* Right — This week's recipes + Recipe library stacked */}
         <div className="flex flex-col gap-4">
           <RecipesPanel entries={plannerEntries} onUpdateServings={handleUpdateServings} onRemove={handleRemoveEntry} />
           <RecipeLibraryPanel recipes={savedRecipes} planId={planId} onAddToPlanner={handleAddToPlanner} />
         </div>
       </div>
 
-      {/* Profile modal */}
       {showProfile && (
         <ProfileModal
           profile={profile}
