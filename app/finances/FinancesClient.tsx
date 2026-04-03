@@ -28,6 +28,8 @@ const BUCKET_COLORS: Record<string, string> = {
   'AI Core': '#60a5fa', 'Energy': '#4ade80', 'Nuclear': '#a78bfa', 'Obscure': '#fbbf24',
 }
 
+const ACCOUNT_TYPES = ['Real Estate', 'Private Equity', 'Venture', 'Angel', 'Debt', 'Other']
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
@@ -43,12 +45,40 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 // ─── KPI Bar ──────────────────────────────────────────────────
-function KPIBar({ finance, portfolio }: { finance: any; portfolio: any }) {
+function KPIBar({ finance, portfolio, manualTotal }: {
+  finance: any
+  portfolio: any
+  manualTotal: number
+}) {
+  const netWorth = finance
+    ? finance.net_worth + (portfolio?.totalValue ?? 0) + manualTotal
+    : null
+
   const kpis = [
-    { label: 'Net Worth', value: finance ? fmt(finance.net_worth) : '—', color: 'text-text-primary', sub: null },
-    { label: 'Invested', value: finance ? fmt(finance.total_investments) : '—', color: 'text-accent-blue', sub: null },
-    { label: 'Cash', value: finance ? fmt(finance.total_cash) : '—', color: 'text-accent', sub: null },
-    { label: 'Credit', value: finance ? fmt(finance.total_credit_balance) : '—', color: 'text-accent-red', sub: null },
+    {
+      label: 'Net Worth',
+      value: netWorth != null ? fmt(netWorth) : '—',
+      color: 'text-text-primary',
+      sub: null,
+    },
+    {
+      label: 'Invested',
+      value: finance ? fmt(finance.total_investments) : '—',
+      color: 'text-accent-blue',
+      sub: null,
+    },
+    {
+      label: 'Cash',
+      value: finance ? fmt(finance.total_cash) : '—',
+      color: 'text-accent',
+      sub: null,
+    },
+    {
+      label: 'Credit',
+      value: finance ? fmt(finance.total_credit_balance) : '—',
+      color: 'text-accent-red',
+      sub: null,
+    },
     {
       label: 'Portfolio',
       value: portfolio ? fmt(portfolio.totalValue) : '—',
@@ -357,6 +387,159 @@ function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
   )
 }
 
+// ─── Manual Accounts ──────────────────────────────────────────
+function ManualAccounts({ onTotalChange }: { onTotalChange: (total: number) => void }) {
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [editAccount, setEditAccount] = useState<any>(null)
+  const [form, setForm] = useState({ name: '', account_type: 'Real Estate', balance: '' })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/finance/manual')
+      .then(r => r.json())
+      .then(res => {
+        const data = res.data ?? []
+        setAccounts(data)
+        onTotalChange(data.reduce((s: number, a: any) => s + a.balance, 0))
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  function updateTotal(updated: any[]) {
+    setAccounts(updated)
+    onTotalChange(updated.reduce((s, a) => s + a.balance, 0))
+  }
+
+  async function save() {
+    setSaving(true)
+    if (editAccount) {
+      const res = await fetch('/api/finance/manual', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editAccount.id, ...form, balance: parseFloat(form.balance) }),
+      }).then(r => r.json())
+      if (res.data) updateTotal(accounts.map(a => a.id === res.data.id ? res.data : a))
+      setEditAccount(null)
+    } else {
+      const res = await fetch('/api/finance/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, balance: parseFloat(form.balance) }),
+      }).then(r => r.json())
+      if (res.data) updateTotal([...accounts, res.data])
+      setShowAdd(false)
+    }
+    setForm({ name: '', account_type: 'Real Estate', balance: '' })
+    setSaving(false)
+  }
+
+  async function deleteAccount(id: string) {
+    await fetch(`/api/finance/manual?id=${id}`, { method: 'DELETE' })
+    updateTotal(accounts.filter(a => a.id !== id))
+  }
+
+  const total = accounts.reduce((s, a) => s + a.balance, 0)
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-lg overflow-hidden">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="widget-label">Investment accounts</span>
+          {total > 0 && <span className="text-sm font-mono text-accent-amber">{fmt(total)}</span>}
+        </div>
+        <button
+          onClick={() => {
+            setShowAdd(true)
+            setEditAccount(null)
+            setForm({ name: '', account_type: 'Real Estate', balance: '' })
+          }}
+          className="btn-connect text-[10px] py-1">
+          + add
+        </button>
+      </div>
+
+      {loading && <div className="px-4 py-4 text-xs text-text-tertiary animate-pulse">Loading...</div>}
+
+      {!loading && accounts.length === 0 && !showAdd && (
+        <div className="px-4 py-6 text-xs text-text-tertiary text-center">
+          No investment accounts yet — click + add to get started
+        </div>
+      )}
+
+      {accounts.map(account => (
+        <div key={account.id}
+          className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 hover:bg-surface-3 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full flex-shrink-0 bg-accent-amber" />
+            <div>
+              <div className="text-sm text-text-primary">{account.name}</div>
+              <div className="text-[10px] text-text-tertiary mt-0.5">{account.account_type}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-mono text-accent-amber">{fmt(account.balance)}</div>
+            <button
+              onClick={() => {
+                setEditAccount(account)
+                setShowAdd(false)
+                setForm({ name: account.name, account_type: account.account_type, balance: account.balance.toString() })
+              }}
+              className="text-[10px] text-text-tertiary hover:text-text-secondary">edit</button>
+            <button onClick={() => deleteAccount(account.id)}
+              className="text-[10px] text-accent-red hover:text-accent-red/80">✕</button>
+          </div>
+        </div>
+      ))}
+
+      {(showAdd || editAccount) && (
+        <div className="px-4 py-4 border-t border-border flex flex-col gap-3 bg-surface-3">
+          <span className="widget-label">{editAccount ? 'Edit account' : 'New account'}</span>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Name</label>
+              <input
+                value={form.name}
+                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Fundrise Project A"
+                className="bg-surface-2 border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Type</label>
+              <select
+                value={form.account_type}
+                onChange={e => setForm(p => ({ ...p, account_type: e.target.value }))}
+                className="bg-surface-2 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none">
+                {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="widget-label">Amount ($)</label>
+              <input
+                type="number"
+                value={form.balance}
+                onChange={e => setForm(p => ({ ...p, balance: e.target.value }))}
+                placeholder="0"
+                className="bg-surface-2 border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none font-mono"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={save} disabled={saving || !form.name || !form.balance} className="btn-primary">
+              {saving ? 'Saving...' : editAccount ? 'Update' : 'Add account'}
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setEditAccount(null) }}
+              className="text-xs text-text-tertiary hover:text-text-secondary">cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────
 interface Props {
   snapshots: any[]
@@ -366,6 +549,7 @@ interface Props {
 export function FinancesClient({ snapshots, isConnected }: Props) {
   const [financeData, setFinanceData] = useState<any>(null)
   const [portfolioData, setPortfolioData] = useState<any>(null)
+  const [manualTotal, setManualTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [linking, setLinking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -430,9 +614,9 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
     <div className="flex flex-col gap-5 max-w-7xl pb-8">
 
       {/* KPI bar */}
-      <KPIBar finance={financeData} portfolio={portfolioData} />
+      <KPIBar finance={financeData} portfolio={portfolioData} manualTotal={manualTotal} />
 
-      {/* Stock portfolio — 3 col grid */}
+      {/* Stock portfolio */}
       <div className="grid grid-cols-3 gap-4">
         <StockPortfolio onDataLoad={setPortfolioData} />
       </div>
@@ -445,7 +629,6 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
             {linking ? 'Connecting...' : isConnected ? '+ add account' : 'Connect Plaid'}
           </button>
         </div>
-
         {!isConnected && !financeData ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <div className="text-text-secondary text-sm">Connect your bank accounts</div>
@@ -484,6 +667,9 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
           ))
         ) : null}
       </div>
+
+      {/* Investment accounts */}
+      <ManualAccounts onTotalChange={setManualTotal} />
 
       {/* Net worth trend */}
       {chartData.length > 1 && (
