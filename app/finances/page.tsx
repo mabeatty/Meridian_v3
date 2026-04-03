@@ -8,7 +8,7 @@ export default async function FinancesPage() {
 
   const [profileRes, tokensRes, snapshotsRes] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user!.id).single(),
-    supabase.from('oauth_tokens').select('provider').eq('user_id', user!.id).eq('provider', 'plaid').single(),
+    supabase.from('oauth_tokens').select('provider').eq('user_id', user!.id).eq('provider', 'plaid').limit(1),
     supabase.from('financial_snapshots').select('*').eq('user_id', user!.id).order('snapshot_date', { ascending: false }).limit(30),
   ])
 
@@ -18,7 +18,7 @@ export default async function FinancesPage() {
       <div className="flex-1 overflow-y-auto p-6">
         <FinancesClient
           snapshots={snapshotsRes.data ?? []}
-          isConnected={!!tokensRes.data}
+          isConnected={!!tokensRes.data?.length}
         />
       </div>
     </div>

@@ -584,16 +584,17 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
       const handler = (window as any).Plaid.create({
         token: tokenRes.link_token,
         onSuccess: async (public_token: string) => {
-          const res = await fetch('/api/finance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ public_token }),
-          }).then(r => r.json())
-          if (res.error) throw new Error(res.error)
-          const fresh = await fetch('/api/finance').then(r => r.json())
-          if (fresh.data) setFinanceData(fresh.data)
-          setLinking(false)
-        },
+            const res = await fetch('/api/finance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ public_token }),
+            }).then(r => r.json())
+            if (res.error) throw new Error(res.error)
+            // Refresh finance data after each connection
+            const fresh = await fetch('/api/finance').then(r => r.json())
+            if (fresh.data) setFinanceData(fresh.data)
+            setLinking(false)
+          },
         onExit: () => setLinking(false),
       })
       handler.open()
