@@ -20,7 +20,7 @@ export async function POST() {
         secret: process.env.PLAID_SECRET,
         client_name: 'Meridian',
         user: { client_user_id: user.id },
-        products: ['transactions'],
+        products: ['balance'],
         country_codes: ['US'],
         language: 'en',
       }),
