@@ -19,6 +19,7 @@ const DEFAULT_CATEGORIES = [
   { name: 'Education', color: '#2dd4bf' },
   { name: 'Life Fulfillment', color: '#c084fc' },
   { name: 'Miscellaneous', color: '#9ca3af' },
+  { name: 'Transfer / Excluded', color: '#6b7280' },
 ]
 
 export async function GET() {

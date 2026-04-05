@@ -274,7 +274,7 @@ export function BudgetClient({ initialCategories, initialTransactions, initialMo
 
           {/* Category list */}
           <div className="flex flex-col gap-2">
-            {summary.filter(c => c.monthly_budget > 0).sort((a, b) => b.pct - a.pct).map(cat => (
+          {summary.filter(c => c.monthly_budget > 0 && c.name !== 'Transfer / Excluded').sort((a, b) => b.pct - a.pct).map(cat => (
               <div key={cat.id} className="bg-surface-2 border border-border rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -320,7 +320,7 @@ export function BudgetClient({ initialCategories, initialTransactions, initialMo
             ))}
 
             {/* Categories with no budget set */}
-            {summary.filter(c => c.monthly_budget === 0).length > 0 && (
+            {summary.filter(c => c.monthly_budget === 0 && c.name !== 'Transfer / Excluded').length > 0 && (
               <div className="mt-2">
                 <span className="widget-label mb-2 block">No budget set</span>
                 {summary.filter(c => c.monthly_budget === 0).map(cat => (
@@ -400,9 +400,13 @@ export function BudgetClient({ initialCategories, initialTransactions, initialMo
                     className="bg-surface-3 border border-border rounded px-2 py-1 text-[10px] text-text-primary focus:outline-none max-w-[130px]"
                     style={{ color: tx.budget_categories?.color ?? undefined }}>
                     <option value="">Uncategorized</option>
-                    {categories.map(c => (
+                    {categories.filter(c => c.name !== 'Transfer / Excluded').map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
+                    <optgroup label="────────────────" />
+                    <option value={categories.find(c => c.name === 'Transfer / Excluded')?.id ?? ''}>
+                      Transfer / Excluded
+                    </option>
                   </select>
                 </div>
               </div>

@@ -81,8 +81,8 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const totalBudget = summary.reduce((s, c) => s + c.effective_budget, 0)
-  const totalSpent = summary.reduce((s, c) => s + c.spent, 0)
+  const totalBudget = summary.filter(c => c.name !== 'Transfer / Excluded').reduce((s, c) => s + c.effective_budget, 0)
+  const totalSpent = summary.filter(c => c.name !== 'Transfer / Excluded').reduce((s, c) => s + c.spent, 0)
 
   // Save carryover for this month
   const carryoverRows = summary
