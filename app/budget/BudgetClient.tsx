@@ -66,7 +66,13 @@ export function BudgetClient({ initialCategories, initialTransactions, initialMo
   useEffect(() => {
     loadSummary()
     loadTransactions()
+    if (categories.length === 0) loadCategories()
   }, [month])
+  
+  async function loadCategories() {
+    const res = await fetch('/api/budget/categories').then(r => r.json())
+    if (res.data) setCategories(res.data)
+  }
 
   async function loadSummary() {
     const res = await fetch(`/api/budget/summary?month=${month}`).then(r => r.json())
