@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard, Calendar, CheckSquare, TrendingUp, Heart, BookOpen, BarChart2, Target, Apple, Pill, Settings } from 'lucide-react'
+import { LayoutDashboard, Calendar, CheckSquare, TrendingUp, Heart, BookOpen, BarChart2, Target, Apple, Pill, Settings, PiggyBank } from 'lucide-react'
 import clsx from 'clsx'
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { label: 'Calendar',    href: '/calendar',    icon: Calendar },
   { label: 'Tasks',       href: '/tasks',       icon: CheckSquare },
   { label: 'Finances',    href: '/finances',    icon: TrendingUp },
+  { label: 'Budget',      href: '/budget',      icon: PiggyBank },
   { label: 'Health',      href: '/health',      icon: Heart },
   { label: 'Journal',     href: '/journal',     icon: BookOpen },
   { label: 'Insights',    href: '/insights',    icon: BarChart2 },
@@ -40,7 +41,8 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       </div>
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
         {NAV.map(({ label, href, icon: Icon }) => (
-          <Link key={href} href={href} className={clsx('nav-item', (pathname === href || pathname.startsWith(href + '/')) && 'active')}>
+          <Link key={href} href={href}
+            className={clsx('nav-item', (pathname === href || pathname.startsWith(href + '/')) && 'active')}>
             <Icon size={15} strokeWidth={1.5} />
             <span>{label}</span>
           </Link>

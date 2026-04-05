@@ -25,7 +25,6 @@ export async function POST() {
         language: 'en',
       }),
     })
-
     const data = await res.json()
     if (data.error_code) throw new Error(data.error_message)
     return NextResponse.json({ link_token: data.link_token })

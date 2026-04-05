@@ -6,6 +6,7 @@ import { NewsWidget } from '@/components/widgets/NewsWidget'
 import { FinanceWidget } from '@/components/widgets/FinanceWidget'
 import { GoalsWidget } from '@/components/widgets/GoalsWidget'
 import { HealthWidget } from '@/components/widgets/HealthWidget'
+import { BudgetWidget } from '@/components/widgets/BudgetWidget'
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -30,10 +31,13 @@ export default async function DashboardPage() {
           <TasksWidget />
           <NewsWidget />
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <FinanceWidget />
           <GoalsWidget />
           <HealthWidget />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <BudgetWidget />
         </div>
       </div>
     </div>

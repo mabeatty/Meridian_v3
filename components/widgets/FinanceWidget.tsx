@@ -16,6 +16,7 @@ export function FinanceWidget() {
   const [manual, setManual] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [notConnected, setNotConnected] = useState(false)
+  const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -29,14 +30,33 @@ export function FinanceWidget() {
   }, [])
 
   const manualTotal = manual.reduce((s, a) => s + a.balance, 0)
-  const stocksTotal = 0 // stocks pulled separately on finances page
   const netWorth = data ? data.net_worth + manualTotal : null
 
   return (
-    <WidgetCard label="Financial Snapshot">
+    <WidgetCard
+      label="Financial Snapshot"
+      action={
+        data && (
+          <button
+            onClick={() => setHidden(h => !h)}
+            className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+          >
+            {hidden ? 'show' : 'hide'}
+          </button>
+        )
+      }
+    >
       {loading && <WidgetSkeleton rows={4} />}
       {!loading && notConnected && <ConnectPrompt service="Plaid" href="/settings#plaid" label="accounts" />}
-      {!loading && !notConnected && data && (
+      {!loading && !notConnected && data && hidden && (
+        <div className="flex flex-col items-center justify-center h-24 gap-2">
+          <span className="text-text-tertiary text-xs">Financial data hidden</span>
+          <button onClick={() => setHidden(false)} className="text-[10px] text-text-tertiary hover:text-text-secondary underline">
+            tap to reveal
+          </button>
+        </div>
+      )}
+      {!loading && !notConnected && data && !hidden && (
         <div className="flex flex-col gap-3">
           <div>
             <div className="text-2xl font-light text-text-primary font-mono tracking-tight">{fmt(netWorth ?? 0)}</div>
