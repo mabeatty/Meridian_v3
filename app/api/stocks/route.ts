@@ -1,44 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const TICKERS = ['NVDA', 'AVGO', 'AMZN', 'GOOGL', 'VST', 'XOM', 'CVX', 'CEG', 'KNF', 'IRDM']
-
-const BUCKETS: Record<string, string> = {
-  NVDA: 'AI Core', AVGO: 'AI Core', AMZN: 'AI Core',
-  GOOGL: 'AI Core', VST: 'AI Core',
-  XOM: 'Energy', CVX: 'Energy',
-  CEG: 'Nuclear',
-  KNF: 'Obscure', IRDM: 'Obscure',
-}
-
-const DIP_TRIGGERS: Record<string, number> = {
-  NVDA: 174, AVGO: 309, AMZN: 201, VST: 154, GOOGL: 291,
-}
-
-const TARGET_ALLOCATIONS: Record<string, number> = {
-  'AI Core': 76, 'Energy': 13, 'Nuclear': 4, 'Obscure': 7,
-}
-
-async function fetchPrices(): Promise<Record<string, { price: number; change: number; changePct: number }>> {
+async function fetchPrices(tickers: string[]): Promise<Record<string, { price: number; change: number; changePct: number }>> {
   const apiKey = process.env.FINNHUB_API_KEY
   const results: Record<string, { price: number; change: number; changePct: number }> = {}
-
-  await Promise.all(TICKERS.map(async ticker => {
+  await Promise.all(tickers.map(async ticker => {
     try {
-      const res = await fetch(
-        `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`
-      )
+      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`)
       const data = await res.json()
-      results[ticker] = {
-        price: data.c ?? 0,
-        change: data.d ?? 0,
-        changePct: data.dp ?? 0,
-      }
+      results[ticker] = { price: data.c ?? 0, change: data.d ?? 0, changePct: data.dp ?? 0 }
     } catch {
       results[ticker] = { price: 0, change: 0, changePct: 0 }
     }
   }))
-
   return results
 }
 
@@ -49,11 +23,33 @@ export async function GET(req: NextRequest) {
 
   const refresh = new URL(req.url).searchParams.get('refresh') === 'true'
 
-  // Check cache first (prices updated within last 5 minutes)
+  // Get user's positions (source of truth for which tickers exist)
+  const { data: positions } = await supabase
+    .from('stock_positions')
+    .select('*')
+    .eq('user_id', user.id)
+
+  const tickers = (positions ?? []).map((p: any) => p.ticker)
+
+  // Get war chest
+  const { data: warChest } = await supabase
+    .from('war_chest')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!tickers.length) {
+    return NextResponse.json({
+      holdings: [], allocations: [], totalValue: 0, totalGainLoss: 0,
+      warChest: warChest?.available_cash ?? 0, pricesUpdatedAt: null,
+    })
+  }
+
+  // Check price cache
   const { data: cachedPrices } = await supabase
     .from('stock_prices')
     .select('*')
-    .in('ticker', TICKERS)
+    .in('ticker', tickers)
 
   const cacheAge = cachedPrices?.[0]?.updated_at
     ? (Date.now() - new Date(cachedPrices[0].updated_at).getTime()) / 1000 / 60
@@ -61,16 +57,12 @@ export async function GET(req: NextRequest) {
 
   let prices: Record<string, { price: number; change: number; changePct: number }> = {}
 
-  if (!refresh && cacheAge < 5 && cachedPrices?.length === TICKERS.length) {
-    // Use cache
+  if (!refresh && cacheAge < 5 && cachedPrices?.length === tickers.length) {
     for (const p of cachedPrices) {
       prices[p.ticker] = { price: p.current_price, change: p.daily_change, changePct: p.daily_change_pct }
     }
   } else {
-    // Fetch fresh prices
-    prices = await fetchPrices()
-
-    // Update cache
+    prices = await fetchPrices(tickers)
     await supabase.from('stock_prices').upsert(
       Object.entries(prices).map(([ticker, data]) => ({
         ticker,
@@ -82,64 +74,50 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Get positions
-  const { data: positions } = await supabase
-    .from('stock_positions')
-    .select('*')
-    .eq('user_id', user.id)
-
-  // Get war chest
-  const { data: warChest } = await supabase
-    .from('war_chest')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  // Build holdings
-  const holdings = TICKERS.map(ticker => {
-    const position = positions?.find(p => p.ticker === ticker)
-    const price = prices[ticker] ?? { price: 0, change: 0, changePct: 0 }
-    const shares = position?.shares ?? 0
-    const costBasis = position?.cost_basis ?? 0
-    const currentValue = shares * price.price
-    const totalCost = shares * costBasis
+  // Build holdings from positions
+  const holdings = (positions ?? []).map((pos: any) => {
+    const price = prices[pos.ticker] ?? { price: 0, change: 0, changePct: 0 }
+    const currentValue = pos.shares * price.price
+    const totalCost = pos.shares * (pos.cost_basis ?? 0)
     const gainLoss = currentValue - totalCost
     const gainLossPct = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0
-
     return {
-      ticker,
-      bucket: BUCKETS[ticker],
-      shares,
-      costBasis,
+      ticker: pos.ticker,
+      bucket: pos.bucket ?? 'Other',
+      shares: pos.shares ?? 0,
+      costBasis: pos.cost_basis ?? 0,
       currentPrice: price.price,
       dailyChange: price.change,
       dailyChangePct: price.changePct,
       currentValue,
       gainLoss,
       gainLossPct,
-      dipTrigger: DIP_TRIGGERS[ticker] ?? null,
-      atDip: DIP_TRIGGERS[ticker] ? price.price <= DIP_TRIGGERS[ticker] : false,
+      dipTrigger: pos.dip_trigger ?? null,
+      atDip: pos.dip_trigger ? price.price <= pos.dip_trigger : false,
+      targetAllocation: pos.target_allocation ?? null,
     }
   })
 
-  // Calculate allocations
-  const totalValue = holdings.reduce((s, h) => s + h.currentValue, 0)
-  const bucketValues: Record<string, number> = {}
+  // Calculate allocations by bucket
+  const totalValue = holdings.reduce((s: number, h: any) => s + h.currentValue, 0)
+  const bucketMap: Record<string, { value: number; target: number }> = {}
   for (const h of holdings) {
-    bucketValues[h.bucket] = (bucketValues[h.bucket] ?? 0) + h.currentValue
+    if (!bucketMap[h.bucket]) bucketMap[h.bucket] = { value: 0, target: 0 }
+    bucketMap[h.bucket].value += h.currentValue
+    if (h.targetAllocation) bucketMap[h.bucket].target = h.targetAllocation
   }
-  const allocations = Object.entries(TARGET_ALLOCATIONS).map(([bucket, target]) => ({
+  const allocations = Object.entries(bucketMap).map(([bucket, { value, target }]) => ({
     bucket,
     target,
-    current: totalValue > 0 ? (bucketValues[bucket] ?? 0) / totalValue * 100 : 0,
-    value: bucketValues[bucket] ?? 0,
+    current: totalValue > 0 ? (value / totalValue) * 100 : 0,
+    value,
   }))
 
   return NextResponse.json({
     holdings,
     allocations,
     totalValue,
-    totalGainLoss: holdings.reduce((s, h) => s + h.gainLoss, 0),
+    totalGainLoss: holdings.reduce((s: number, h: any) => s + h.gainLoss, 0),
     warChest: warChest?.available_cash ?? 0,
     pricesUpdatedAt: cachedPrices?.[0]?.updated_at ?? new Date().toISOString(),
   })
@@ -150,13 +128,22 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { type, ticker, shares, cost_basis, war_chest } = await req.json()
+  const { type, ticker, shares, cost_basis, bucket, dip_trigger, target_allocation, war_chest } = await req.json()
 
   if (type === 'position') {
+    if (!ticker) return NextResponse.json({ error: 'Ticker required' }, { status: 400 })
     const { error } = await supabase
       .from('stock_positions')
-      .upsert({ user_id: user.id, ticker, shares, cost_basis, bucket: BUCKETS[ticker], updated_at: new Date().toISOString() },
-        { onConflict: 'user_id,ticker' })
+      .upsert({
+        user_id: user.id,
+        ticker: ticker.toUpperCase(),
+        shares: shares ?? 0,
+        cost_basis: cost_basis ?? 0,
+        bucket: bucket ?? 'Other',
+        dip_trigger: dip_trigger ?? null,
+        target_allocation: target_allocation ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,ticker' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
@@ -168,5 +155,23 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  return NextResponse.json({ success: true })
+}
+
+export async function DELETE(req: NextRequest) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const ticker = new URL(req.url).searchParams.get('ticker')
+  if (!ticker) return NextResponse.json({ error: 'Ticker required' }, { status: 400 })
+
+  const { error } = await supabase
+    .from('stock_positions')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('ticker', ticker.toUpperCase())
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
