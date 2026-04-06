@@ -6,26 +6,114 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: cached } = await supabase.from('widget_cache').select('data,fetched_at').eq('user_id', user.id).eq('widget_key', 'tasks').single()
-  if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 2) return NextResponse.json({ data: cached.data, cached: true })
+  // Check cache (2 min TTL)
+  const { data: cached } = await supabase
+    .from('widget_cache')
+    .select('data,fetched_at')
+    .eq('user_id', user.id)
+    .eq('widget_key', 'tasks')
+    .single()
 
-const clickupToken = process.env.CLICKUP_API_TOKEN
-console.log('CLICKUP_API_TOKEN present:', !!clickupToken, 'value starts with:', clickupToken?.slice(0, 5))
-  if (!clickupToken) return NextResponse.json({ data: null, error: 'not_connected', cached: false })
-    
-const h = { Authorization: clickupToken }
-  try {
-    const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
-    console.log('ClickUp teams response:', JSON.stringify(teams, null, 2))
-    const teamId = teams.teams?.[0]?.id
-    console.log('Team ID:', teamId)
-    if (!teamId) throw new Error('No workspace')
-      const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7); sevenDaysOut.setHours(23, 59, 59, 999)
-    const td = await fetch(`https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${sevenDaysOut.getTime()}&include_closed=false&subtasks=true&page=0&assignees[]=87374906`, { headers: h }).then(r => r.json())
-    console.log('ClickUp raw tasks:', JSON.stringify(td, null, 2))
-    const tasks = (td.tasks ?? []).slice(0, 20).map((t: any) => ({ id: t.id, name: t.name, status: t.status?.status ?? 'unknown', priority: t.priority?.priority ? parseInt(t.priority.priority) : null, due_date: t.due_date ? parseInt(t.due_date) : null, list_name: t.list?.name ?? '', url: t.url ?? '', tags: (t.tags ?? []).map((tg: any) => tg.name) }))
-    const data = { tasks, fetched_at: new Date().toISOString() }
-    await supabase.from('widget_cache').upsert({ user_id: user.id, widget_key: 'tasks', data, fetched_at: data.fetched_at }, { onConflict: 'user_id,widget_key' })
-    return NextResponse.json({ data, cached: false })
-  } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }) }
+  if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 2) {
+    return NextResponse.json({ data: cached.data, cached: true })
+  }
+
+  const allTasks: any[] = []
+
+  // ── Manual tasks ────────────────────────────────────────────
+  const { data: manualTasks } = await supabase
+    .from('manual_tasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('archived_at', null)
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('priority', { ascending: true })
+
+  for (const t of manualTasks ?? []) {
+    allTasks.push({
+      id: `manual_${t.id}`,
+      raw_id: t.id,
+      name: t.title,
+      notes: t.notes ?? null,
+      status: t.status,
+      priority: t.priority,
+      due_date: t.due_date ? new Date(t.due_date).getTime() : null,
+      source: 'manual',
+      list_name: null,
+      url: null,
+      tags: [],
+    })
+  }
+
+  // ── ClickUp (per-user OAuth token) ──────────────────────────
+  const { data: clickupToken } = await supabase
+    .from('oauth_tokens')
+    .select('access_token')
+    .eq('user_id', user.id)
+    .eq('provider', 'clickup')
+    .single()
+
+  if (clickupToken?.access_token) {
+    try {
+      const h = { Authorization: clickupToken.access_token }
+      const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
+      const teamId = teams.teams?.[0]?.id
+      if (teamId) {
+        const sevenDaysOut = new Date()
+        sevenDaysOut.setDate(sevenDaysOut.getDate() + 7)
+        sevenDaysOut.setHours(23, 59, 59, 999)
+
+        const memberId = teams.teams?.[0]?.members?.find(
+          (m: any) => m.user?.email === user.email
+        )?.user?.id
+
+        const url = memberId
+          ? `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${sevenDaysOut.getTime()}&include_closed=false&subtasks=true&page=0&assignees[]=${memberId}`
+          : `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${sevenDaysOut.getTime()}&include_closed=false&subtasks=true&page=0`
+
+        const td = await fetch(url, { headers: h }).then(r => r.json())
+
+        for (const t of (td.tasks ?? []).slice(0, 20)) {
+          allTasks.push({
+            id: `clickup_${t.id}`,
+            raw_id: t.id,
+            name: t.name,
+            notes: null,
+            status: t.status?.status ?? 'unknown',
+            priority: t.priority?.priority ? parseInt(t.priority.priority) : null,
+            due_date: t.due_date ? parseInt(t.due_date) : null,
+            source: 'clickup',
+            list_name: t.list?.name ?? '',
+            url: t.url ?? null,
+            tags: (t.tags ?? []).map((tg: any) => tg.name),
+          })
+        }
+      }
+    } catch (e) {
+      console.error('ClickUp fetch error:', e)
+    }
+  }
+
+  // Sort: overdue first, then by due date, then no due date, then by priority
+  allTasks.sort((a, b) => {
+    const now = Date.now()
+    const aOverdue = a.due_date && a.due_date < now
+    const bOverdue = b.due_date && b.due_date < now
+    if (aOverdue && !bOverdue) return -1
+    if (!aOverdue && bOverdue) return 1
+    if (a.due_date && b.due_date) return a.due_date - b.due_date
+    if (a.due_date && !b.due_date) return -1
+    if (!a.due_date && b.due_date) return 1
+    return (a.priority ?? 99) - (b.priority ?? 99)
+  })
+
+  const connectedProviders = { clickup: !!clickupToken?.access_token }
+  const data = { tasks: allTasks, connectedProviders, fetched_at: new Date().toISOString() }
+
+  await supabase.from('widget_cache').upsert(
+    { user_id: user.id, widget_key: 'tasks', data, fetched_at: data.fetched_at },
+    { onConflict: 'user_id,widget_key' }
+  )
+
+  return NextResponse.json({ data, cached: false })
 }
