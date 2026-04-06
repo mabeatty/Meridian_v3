@@ -123,6 +123,13 @@ export async function POST(req: NextRequest) {
     { onConflict: 'user_id,provider,item_id' }
   )
 
+  // Clean up any stale null item_id rows
+  await supabase.from('oauth_tokens')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('provider', 'plaid')
+    .is('item_id', null)
+
   // Invalidate cache
   await supabase.from('widget_cache')
     .delete()
