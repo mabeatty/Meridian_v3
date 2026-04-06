@@ -281,7 +281,7 @@ export default function TasksPage() {
           ) : upcoming.length === 0 && overdue.length === 0 ? (
             <div className="bg-surface-2 border border-border rounded-xl px-5 py-10 text-center">
               <p className="text-text-secondary text-sm">All clear — no open tasks</p>
-              <p className="text-text-tertiary text-xs mt-1">Click "Add task" to get started</p>
+              <p className="text-text-tertiary text-xs mt-1">Click Add task to get started</p>
             </div>
           ) : (
             <div className="flex flex-col gap-1">
