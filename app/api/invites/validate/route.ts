@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const token = new URL(req.url).searchParams.get('token')
   const email = new URL(req.url).searchParams.get('email')
 

@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   if (!user && !isAuthRoute && !isApiRoute) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
-  if (user && isAuthRoute) {
+  if (user && isAuthRoute && !request.nextUrl.pathname.startsWith('/auth/signup')) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
   return response
