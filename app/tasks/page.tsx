@@ -401,7 +401,7 @@ function PlannerTab() {
         body: JSON.stringify({ task_id: task.clickup_id }),
       })
     }
-    setCompletedTasks(prev => new Set([...prev, key]))
+    setCompletedTasks(prev => { const next = new Set(prev); next.add(key); return next })
     setCompletingTask(null)
   }
 
