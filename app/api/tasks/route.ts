@@ -53,9 +53,10 @@ export async function GET() {
     .eq('provider', 'clickup')
     .single()
 
-  if (clickupToken?.access_token) {
+  const resolvedToken = clickupToken?.access_token ?? process.env.CLICKUP_API_TOKEN
+  if (resolvedToken) {
     try {
-      const h = { Authorization: clickupToken.access_token }
+      const h = { Authorization: resolvedToken }
       const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
       const teamId = teams.teams?.[0]?.id
       if (teamId) {
@@ -107,7 +108,7 @@ export async function GET() {
     return (a.priority ?? 99) - (b.priority ?? 99)
   })
 
-  const connectedProviders = { clickup: !!clickupToken?.access_token }
+  const connectedProviders = { clickup: !!resolvedToken }
   const data = { tasks: allTasks, connectedProviders, fetched_at: new Date().toISOString() }
 
   await supabase.from('widget_cache').upsert(

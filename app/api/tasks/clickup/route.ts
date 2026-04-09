@@ -1,36 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// Expanded ClickUp fetch for planner — broader date range, descriptions, all assigned tasks
+async function getClickUpToken(supabase: any, userId: string): Promise<string | null> {
+  const { data: tokenRow } = await supabase
+    .from('oauth_tokens')
+    .select('access_token')
+    .eq('user_id', userId)
+    .eq('provider', 'clickup')
+    .single()
+  return tokenRow?.access_token ?? process.env.CLICKUP_API_TOKEN ?? null
+}
+
 export async function GET() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: tokenRow } = await supabase
-    .from('oauth_tokens')
-    .select('access_token')
-    .eq('user_id', user.id)
-    .eq('provider', 'clickup')
-    .single()
+  const token = await getClickUpToken(supabase, user.id)
+  if (!token) return NextResponse.json({ error: 'not_connected', tasks: [] })
 
-  if (!tokenRow?.access_token) {
-    return NextResponse.json({ error: 'not_connected', tasks: [] })
-  }
-
-  const h = { Authorization: tokenRow.access_token }
+  const h = { Authorization: token }
 
   try {
     const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
     const teamId = teams.teams?.[0]?.id
     if (!teamId) return NextResponse.json({ error: 'No workspace', tasks: [] })
 
-    // Find the user's ClickUp member ID
     const memberId = teams.teams?.[0]?.members?.find(
       (m: any) => m.user?.email === user.email
     )?.user?.id
 
-    // Fetch tasks due in next 90 days (broad enough for planning)
     const ninetyDaysOut = new Date()
     ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90)
 
@@ -59,12 +58,10 @@ export async function GET() {
         : null,
       list_name: t.list?.name ?? '',
       folder_name: t.folder?.name ?? '',
-      space_name: t.space?.name ?? '',
       url: t.url ?? null,
       tags: (t.tags ?? []).map((tg: any) => tg.name),
     }))
 
-    // Also fetch overdue (no due_date filter, just get open tasks with past due dates)
     const overdueTd = await fetch(
       `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${Date.now()}&include_closed=false&subtasks=true&page=0${memberId ? `&assignees[]=${memberId}` : ''}`,
       { headers: h }
@@ -84,7 +81,6 @@ export async function GET() {
           : null,
         list_name: t.list?.name ?? '',
         folder_name: t.folder?.name ?? '',
-        space_name: t.space?.name ?? '',
         url: t.url ?? null,
         tags: (t.tags ?? []).map((tg: any) => tg.name),
         overdue: true,
@@ -96,7 +92,6 @@ export async function GET() {
   }
 }
 
-// Mark a ClickUp task as closed/complete
 export async function PATCH(req: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -105,29 +100,21 @@ export async function PATCH(req: NextRequest) {
   const { task_id, status } = await req.json()
   if (!task_id) return NextResponse.json({ error: 'task_id required' }, { status: 400 })
 
-  const { data: tokenRow } = await supabase
-    .from('oauth_tokens')
-    .select('access_token')
-    .eq('user_id', user.id)
-    .eq('provider', 'clickup')
-    .single()
-
-  if (!tokenRow?.access_token) return NextResponse.json({ error: 'not_connected' }, { status: 401 })
+  const token = await getClickUpToken(supabase, user.id)
+  if (!token) return NextResponse.json({ error: 'not_connected' }, { status: 401 })
 
   try {
-    // Get task's available statuses first
     const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${task_id}`, {
-      headers: { Authorization: tokenRow.access_token }
+      headers: { Authorization: token }
     }).then(r => r.json())
 
-    // Use provided status or fall back to 'complete' or 'closed'
     const targetStatus = status ?? taskRes.list?.statuses?.find(
       (s: any) => s.type === 'closed'
     )?.status ?? 'complete'
 
     const res = await fetch(`https://api.clickup.com/api/v2/task/${task_id}`, {
       method: 'PUT',
-      headers: { Authorization: tokenRow.access_token, 'Content-Type': 'application/json' },
+      headers: { Authorization: token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: targetStatus }),
     })
 
