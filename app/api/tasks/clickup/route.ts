@@ -11,6 +11,19 @@ async function getClickUpToken(supabase: any, userId: string): Promise<string | 
   return tokenRow?.access_token ?? process.env.CLICKUP_API_TOKEN ?? null
 }
 
+async function getClickUpMemberId(teams: any, userEmail: string): Promise<string | null> {
+  // Try to match by email first
+  const byEmail = teams.teams?.[0]?.members?.find(
+    (m: any) => m.user?.email === userEmail
+  )?.user?.id
+  if (byEmail) return String(byEmail)
+
+  // Fall back to CLICKUP_MEMBER_ID env var if set
+  if (process.env.CLICKUP_MEMBER_ID) return process.env.CLICKUP_MEMBER_ID
+
+  return null
+}
+
 export async function GET() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,9 +39,7 @@ export async function GET() {
     const teamId = teams.teams?.[0]?.id
     if (!teamId) return NextResponse.json({ error: 'No workspace', tasks: [] })
 
-    const memberId = teams.teams?.[0]?.members?.find(
-      (m: any) => m.user?.email === user.email
-    )?.user?.id
+    const memberId = await getClickUpMemberId(teams, user.email ?? '')
 
     const ninetyDaysOut = new Date()
     ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90)

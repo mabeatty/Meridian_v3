@@ -64,9 +64,12 @@ export async function GET() {
         sevenDaysOut.setDate(sevenDaysOut.getDate() + 7)
         sevenDaysOut.setHours(23, 59, 59, 999)
 
-        const memberId = teams.teams?.[0]?.members?.find(
+        const memberByEmail = teams.teams?.[0]?.members?.find(
           (m: any) => m.user?.email === user.email
         )?.user?.id
+        const memberId = memberByEmail
+          ? String(memberByEmail)
+          : process.env.CLICKUP_MEMBER_ID ?? null
 
         const url = memberId
           ? `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${sevenDaysOut.getTime()}&include_closed=false&subtasks=true&page=0&assignees[]=${memberId}`
