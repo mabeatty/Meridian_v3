@@ -58,7 +58,7 @@ export async function GET() {
     try {
       const h = { Authorization: resolvedToken }
       const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
-      const teamId = teams.teams?.[0]?.id
+      const teamId = teams.teams?.[0]?.id ?? process.env.CLICKUP_TEAM_ID
       if (teamId) {
         const sevenDaysOut = new Date()
         sevenDaysOut.setDate(sevenDaysOut.getDate() + 7)

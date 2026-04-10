@@ -36,7 +36,7 @@ export async function GET() {
 
   try {
     const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
-    const teamId = teams.teams?.[0]?.id
+    const teamId = teams.teams?.[0]?.id ?? process.env.CLICKUP_TEAM_ID
     if (!teamId) return NextResponse.json({ error: 'No workspace', tasks: [] })
 
     const memberId = await getClickUpMemberId(teams, user.email ?? '')
