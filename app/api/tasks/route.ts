@@ -71,9 +71,9 @@ export async function GET() {
           ? String(memberByEmail)
           : process.env.CLICKUP_MEMBER_ID ?? null
 
-        const url = memberId
-          ? `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${sevenDaysOut.getTime()}&include_closed=false&subtasks=true&page=0&assignees[]=${memberId}`
-          : `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${sevenDaysOut.getTime()}&include_closed=false&subtasks=true&page=0`
+        const taskParams = new URLSearchParams({ due_date_lt: sevenDaysOut.getTime().toString(), include_closed: 'false', subtasks: 'true', page: '0' })
+        if (memberId && memberId !== 'undefined') taskParams.append('assignees[]', memberId)
+        const url = `https://api.clickup.com/api/v2/team/${teamId}/task?${taskParams}`
 
         const td = await fetch(url, { headers: h }).then(r => r.json())
 

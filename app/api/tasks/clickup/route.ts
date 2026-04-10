@@ -50,7 +50,7 @@ export async function GET() {
       subtasks: 'true',
       page: '0',
     })
-    if (memberId) params.append('assignees[]', memberId)
+    if (memberId && memberId !== 'undefined') params.append('assignees[]', memberId)
 
     const td = await fetch(
       `https://api.clickup.com/api/v2/team/${teamId}/task?${params}`,
