@@ -1,40 +1,44 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
-  const token = process.env.CLICKUP_API_TOKEN
-  const memberId = process.env.CLICKUP_MEMBER_ID
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' })
 
-  if (!token) return NextResponse.json({ error: 'No CLICKUP_API_TOKEN in env' })
+  const { data: tokenRow } = await supabase
+    .from('oauth_tokens')
+    .select('access_token')
+    .eq('user_id', user.id)
+    .eq('provider', 'clickup')
+    .single()
 
-  const teamsRes = await fetch('https://api.clickup.com/api/v2/team', {
-    headers: { Authorization: token }
-  })
-  const teams = await teamsRes.json()
+  const token = tokenRow?.access_token ?? process.env.CLICKUP_API_TOKEN
+  if (!token) return NextResponse.json({ error: 'No token' })
+
+  const h = { Authorization: token }
+
+  const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
   const teamId = teams.teams?.[0]?.id
+  const memberId = process.env.CLICKUP_MEMBER_ID ?? '87374906'
 
-  if (!teamId) return NextResponse.json({ error: 'No team found', teams })
+  // Test overdue fetch
+  const overdueUrl = `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${Date.now()}&include_closed=false&subtasks=true&page=0&assignees[]=${memberId}`
+  const overdueRes = await fetch(overdueUrl, { headers: h }).then(r => r.json())
 
+  // Test upcoming fetch
   const ninetyDaysOut = new Date()
   ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90)
-
-  const params = new URLSearchParams({
-    due_date_lt: ninetyDaysOut.getTime().toString(),
-    include_closed: 'false',
-    subtasks: 'true',
-    page: '0',
-  })
-  if (memberId) params.append('assignees[]', memberId)
-
-  const url = `https://api.clickup.com/api/v2/team/${teamId}/task?${params}`
-  const tasksRes = await fetch(url, { headers: { Authorization: token } })
-  const tasks = await tasksRes.json()
+  const upcomingUrl = `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${ninetyDaysOut.getTime()}&include_closed=false&subtasks=true&page=0&assignees[]=${memberId}`
+  const upcomingRes = await fetch(upcomingUrl, { headers: h }).then(r => r.json())
 
   return NextResponse.json({
-    token_present: !!token,
-    token_prefix: token.slice(0, 8),
-    member_id: memberId ?? 'NOT SET',
     team_id: teamId,
-    task_count: tasks.tasks?.length ?? 0,
-    tasks_error: tasks.err ?? null,
+    member_id: memberId,
+    overdue_count: overdueRes.tasks?.length ?? 0,
+    overdue_error: overdueRes.err ?? null,
+    upcoming_count: upcomingRes.tasks?.length ?? 0,
+    upcoming_error: upcomingRes.err ?? null,
+    sample_task: overdueRes.tasks?.[0]?.name ?? upcomingRes.tasks?.[0]?.name ?? null,
   })
 }
