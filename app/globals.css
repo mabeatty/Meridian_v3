@@ -1,33 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+html, body { height: 100%; background: #0a0a0a; color: #f0f0f0; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #363636; }
+
+@layer components {
+  .widget-card {
+    background: #161616;
+    border: 1px solid #242424;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 420px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.6);
+    transition: box-shadow 0.2s ease;
+  }
+  .widget-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .widget-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #505050;
+    font-family: 'DM Mono', monospace;
+  }
+  .widget-empty {
+    color: #505050;
+    font-size: 14px;
+  }
+  .metric-value {
+    font-family: 'DM Mono', monospace;
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    color: #f0f0f0;
+    font-variant-numeric: tabular-nums;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #505050;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+  }
+  .nav-item:hover {
+    color: #909090;
+    background: #1e1e1e;
+  }
+  .nav-item.active {
+    color: #f0f0f0;
+    background: #1e1e1e;
+  }
+  .btn-connect {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    border-radius: 8px;
+    background: #1e1e1e;
+    border: 1px solid #242424;
+    color: #909090;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn-connect:hover {
+    border-color: #363636;
+    color: #f0f0f0;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+    background: #f0f0f0;
+    color: #0a0a0a;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    border: none;
+  }
+  .btn-primary:hover { background: #d0d0d0; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+    color: #505050;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+  }
+  .btn-ghost:hover {
+    color: #909090;
+    background: #1e1e1e;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #161616 25%, #1e1e1e 50%, #161616 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+  border-radius: 4px;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.font-clock {
+  font-family: 'DM Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
 }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.35s ease-out forwards; }
+.animate-in-delay-1 { animation: fadeInUp 0.35s ease-out 0.07s forwards; opacity: 0; }
+.animate-in-delay-2 { animation: fadeInUp 0.35s ease-out 0.14s forwards; opacity: 0; }
+.animate-in-delay-3 { animation: fadeInUp 0.35s ease-out 0.21s forwards; opacity: 0; }
+
+/* v2 */
