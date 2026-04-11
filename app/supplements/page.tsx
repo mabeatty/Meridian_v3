@@ -41,15 +41,15 @@ function SuppRow({ name, dose, note }: { name: string; dose: string; note: strin
   return (
     <div style={{ padding: '9px 0', borderBottom: '0.5px solid #242424' }}>
       <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>{name}</div>
-      <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>{dose}</div>
-      <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>{note}</div>
+      <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>{dose}</div>
+      <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>{note}</div>
     </div>
   )
 }
 
 function SuppCard({ timing, children }: { timing: keyof typeof TIMING_COLORS; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '10px', padding: '14px' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '10px', padding: '14px' }}>
       <div style={{ marginBottom: '10px' }}>
         <TimingBadge timing={timing} />
       </div>
@@ -76,8 +76,8 @@ function TargetsCard() {
   }
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '10px', padding: '14px' }}>
-      <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '10px', padding: '14px' }}>
+      <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>
         Daily targets
       </div>
       {TARGETS.map(t => {
@@ -92,12 +92,12 @@ function TargetsCard() {
                 placeholder="0"
                 value={values[t.id] ?? ''}
                 onChange={e => handleChange(t.id, e.target.value)}
-                style={{ width: '54px', fontSize: '12px', fontFamily: 'DM Mono, monospace', textAlign: 'right', padding: '3px 6px', borderRadius: '5px', border: '0.5px solid #363636', background: '#1e1e1e', color: '#f0f0f0', outline: 'none' }}
+                style={{ width: '54px', fontSize: '12px', fontFamily: 'DM Mono, monospace', textAlign: 'right', padding: '3px 6px', borderRadius: '5px', border: '0.5px solid #363636', background: '#4e4e4e', color: '#f0f0f0', outline: 'none' }}
               />
-              <span style={{ fontSize: '10px', color: '#505050', width: '22px' }}>{t.unit}</span>
-              <div style={{ fontSize: '10px', color: '#505050', fontFamily: 'DM Mono, monospace', width: '52px', textAlign: 'right' }}>{t.goal}</div>
+              <span style={{ fontSize: '10px', color: '#c0c0c0', width: '22px' }}>{t.unit}</span>
+              <div style={{ fontSize: '10px', color: '#c0c0c0', fontFamily: 'DM Mono, monospace', width: '52px', textAlign: 'right' }}>{t.goal}</div>
             </div>
-            <div style={{ height: '2px', background: '#242424', borderRadius: '1px', marginTop: '2px', overflow: 'hidden' }}>
+            <div style={{ height: '2px', background: '#525252', borderRadius: '1px', marginTop: '2px', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${pct}%`, borderRadius: '1px', background: t.color, transition: 'width 0.3s ease' }} />
             </div>
           </div>
@@ -124,8 +124,8 @@ export default function SupplementsPage() {
               <SuppRow name="L-Glutamine" dose="5g powder" note="NOW Foods. Gut lining repair, immune support, muscle recovery, GABA/glutamate balance." />
               <div style={{ padding: '9px 0' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>Probiotic</div>
-                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>1 capsule</div>
-                <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>Seed DS-01 or Garden of Life 50B. Microbiome restoration and maintenance.</div>
+                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>1 capsule</div>
+                <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>Seed DS-01 or Garden of Life 50B. Microbiome restoration and maintenance.</div>
               </div>
             </SuppCard>
 
@@ -133,8 +133,8 @@ export default function SupplementsPage() {
               <SuppRow name="Vitamin D3" dose="2,000 – 5,000 IU" note="Take with fat for absorption. Immune function, mood regulation, testosterone support." />
               <div style={{ padding: '9px 0' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>B Complex</div>
-                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>1 capsule</div>
-                <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>Take with food to avoid nausea. Energy metabolism, nervous system function, stress response.</div>
+                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>1 capsule</div>
+                <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>Take with food to avoid nausea. Energy metabolism, nervous system function, stress response.</div>
               </div>
             </SuppCard>
           </div>
@@ -147,16 +147,16 @@ export default function SupplementsPage() {
               <SuppRow name="Magnesium Glycinate" dose="200 – 400mg" note="Sports Research. Nervous system calming, sleep quality, muscle recovery." />
               <div style={{ padding: '9px 0' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>Zinc</div>
-                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>1 capsule</div>
-                <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>NOW Foods. Immune function, testosterone support, sleep quality.</div>
+                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>1 capsule</div>
+                <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>NOW Foods. Immune function, testosterone support, sleep quality.</div>
               </div>
             </SuppCard>
 
             <SuppCard timing="evening">
               <div style={{ padding: '9px 0' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>Psyllium Husk</div>
-                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>Start 1 cap → build to 3 over 3 weeks</div>
-                <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>NOW Foods. Prebiotic fiber — feeds beneficial bacteria, improves motility. Must take with 8–12oz water, follow with another full glass.</div>
+                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>Start 1 cap → build to 3 over 3 weeks</div>
+                <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>NOW Foods. Prebiotic fiber — feeds beneficial bacteria, improves motility. Must take with 8–12oz water, follow with another full glass.</div>
               </div>
             </SuppCard>
 
@@ -164,8 +164,8 @@ export default function SupplementsPage() {
               <SuppRow name="Creatine" dose="5g" note="Any time — consistency matters more than timing. Strength, power output, cognitive function." />
               <div style={{ padding: '9px 0' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>Protein Powder</div>
-                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>40 – 50g across day</div>
-                <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>To hit 200g total daily protein target.</div>
+                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>40 – 50g across day</div>
+                <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>To hit 200g total daily protein target.</div>
               </div>
             </SuppCard>
           </div>
@@ -177,25 +177,25 @@ export default function SupplementsPage() {
             <SuppCard timing="meal">
               <div style={{ padding: '9px 0' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: '#f0f0f0' }}>Digestive Enzymes</div>
-                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#505050', marginTop: '2px' }}>1 – 2 capsules</div>
-                <div style={{ fontSize: '12px', color: '#909090', marginTop: '3px', lineHeight: 1.45 }}>Enzymedica Digest Gold. Breaks down food before fermentation — directly reduces bloating and gas.</div>
+                <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', marginTop: '2px' }}>1 – 2 capsules</div>
+                <div style={{ fontSize: '12px', color: '#c0c0c0', marginTop: '3px', lineHeight: 1.45 }}>Enzymedica Digest Gold. Breaks down food before fermentation — directly reduces bloating and gas.</div>
               </div>
             </SuppCard>
 
-            <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #1D9E75', borderRadius: '0 10px 10px 0', padding: '14px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>
+            <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '0 10px 10px 0', padding: '14px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>
                 What this stack is doing
               </div>
-              <p style={{ fontSize: '12px', color: '#909090', lineHeight: 1.6, margin: '0 0 8px' }}>
+              <p style={{ fontSize: '12px', color: '#c0c0c0', lineHeight: 1.6, margin: '0 0 8px' }}>
                 The morning stack addresses dopamine and stress resilience — tyrosine and rhodiola together support the drive and focus needed to play offense rather than manage threat.
               </p>
-              <p style={{ fontSize: '12px', color: '#909090', lineHeight: 1.6, margin: '0 0 8px' }}>
+              <p style={{ fontSize: '12px', color: '#c0c0c0', lineHeight: 1.6, margin: '0 0 8px' }}>
                 The gut protocol — glutamine, enzymes, probiotic, psyllium — repairs the gut-brain axis which directly influences mood, serotonin production, and baseline anxiety.
               </p>
-              <p style={{ fontSize: '12px', color: '#909090', lineHeight: 1.6, margin: '0 0 8px' }}>
+              <p style={{ fontSize: '12px', color: '#c0c0c0', lineHeight: 1.6, margin: '0 0 8px' }}>
                 The evening stack brings cortisol down, supports sleep architecture, and allows the nervous system to restore overnight.
               </p>
-              <p style={{ fontSize: '12px', color: '#909090', lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: '12px', color: '#c0c0c0', lineHeight: 1.6, margin: 0 }}>
                 The vivid dreams are a direct indicator that REM sleep quality is improving — the system consolidating psychological work during sleep.
               </p>
             </div>

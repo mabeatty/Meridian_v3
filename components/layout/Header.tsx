@@ -41,7 +41,7 @@ export function Header({ displayName, weather }: HeaderProps) {
       justifyContent: 'space-between',
       padding: '14px 28px',
       borderBottom: '1px solid #242424',
-      background: '#111111',
+      background: '#3f3f3f',
       flexShrink: 0,
     }}>
       {/* Greeting */}
@@ -56,11 +56,11 @@ export function Header({ displayName, weather }: HeaderProps) {
           margin: 0,
         }}>
           {time ? getGreeting(time.getHours()) : 'Hello'},{' '}
-          <span style={{ color: '#909090' }}>{displayName || 'Alex'}</span>
+          <span style={{ color: '#c0c0c0' }}>{displayName || 'Alex'}</span>
         </h2>
         <p style={{
           fontSize: '12px',
-          color: '#505050',
+          color: '#c0c0c0',
           marginTop: '2px',
           fontFamily: "'DM Mono', monospace",
         }}>
@@ -75,7 +75,7 @@ export function Header({ displayName, weather }: HeaderProps) {
             <div style={{ fontSize: '13px', color: '#f0f0f0', fontFamily: "'DM Mono', monospace" }}>
               {weatherEmoji(weather.condition)} {Math.round(weather.temp)}°F
             </div>
-            <div style={{ fontSize: '10px', color: '#505050', marginTop: '2px', fontFamily: "'DM Mono', monospace" }}>
+            <div style={{ fontSize: '10px', color: '#c0c0c0', marginTop: '2px', fontFamily: "'DM Mono', monospace" }}>
               {weather.condition}
             </div>
           </div>
@@ -95,11 +95,11 @@ export function Header({ displayName, weather }: HeaderProps) {
             fontVariantNumeric: 'tabular-nums',
           }}>
             {time ? format(time, 'h:mm') : '--:--'}
-            <span style={{ fontSize: '16px', color: '#505050' }}>
+            <span style={{ fontSize: '16px', color: '#c0c0c0' }}>
               {time ? format(time, ':ss') : ''}
             </span>
             {' '}
-            <span style={{ fontSize: '13px', color: '#505050' }}>
+            <span style={{ fontSize: '13px', color: '#c0c0c0' }}>
               {time ? format(time, 'aa').toUpperCase() : ''}
             </span>
           </div>

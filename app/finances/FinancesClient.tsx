@@ -139,29 +139,29 @@ function SpendingChart({ period, onPeriodChange }: { period: string; onPeriodCha
   }, [data])
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #4d9fff', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Spending vs budget</span>
+        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Spending vs budget</span>
         <div style={{ display: 'flex', gap: '4px' }}>
           {['3m','6m','12m'].map(p => (
             <button key={p} onClick={() => onPeriodChange(p)}
               style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', border: '0.5px solid', cursor: 'pointer', fontFamily: 'DM Mono, monospace',
-                borderColor: period === p ? 'transparent' : '#363636',
+                borderColor: period === p ? 'transparent' : '#626262',
                 background: period === p ? '#1a2d4d' : 'transparent',
-                color: period === p ? '#4d9fff' : '#505050' }}>
+                color: period === p ? '#4d9fff' : '#c0c0c0' }}>
               {p.toUpperCase()}
             </button>
           ))}
         </div>
       </div>
       {loading ? (
-        <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#505050', fontSize: '12px' }}>Loading...</div>
+        <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c0c0c0', fontSize: '12px' }}>Loading...</div>
       ) : (
         <div style={{ position: 'relative', width: '100%', height: '180px' }}>
           <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
         </div>
       )}
-      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#505050' }}>
+      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#c0c0c0' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#4d9fff', display: 'inline-block' }} />Spent
         </span>
@@ -214,8 +214,8 @@ function AccountGroups({ finance, manualAccounts, portfolio }: { finance: any; m
   }
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #f5a623', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '0' }}>
-      <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '12px' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '0' }}>
+      <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace', marginBottom: '12px' }}>
         Accounts & holdings
       </div>
       {groups.map((g, i) => (
@@ -224,7 +224,7 @@ function AccountGroups({ finance, manualAccounts, portfolio }: { finance: any; m
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: g.color, flexShrink: 0, boxShadow: `0 0 6px ${g.color}60` }} />
             <div>
               <div style={{ fontSize: '13px', color: '#f0f0f0' }}>{g.label}</div>
-              <div style={{ fontSize: '11px', color: '#505050', marginTop: '1px', fontFamily: 'DM Mono, monospace' }}>{g.sub}</div>
+              <div style={{ fontSize: '11px', color: '#c0c0c0', marginTop: '1px', fontFamily: 'DM Mono, monospace' }}>{g.sub}</div>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -259,27 +259,27 @@ function SpendingCategories() {
   const pct = data?.totalBudget > 0 ? Math.min((data.totalSpent / data.totalBudget) * 100, 100) : 0
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #3ddc84', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>This month</span>
-        {data && <span style={{ fontSize: '12px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{fmtCompact(data.totalSpent)} of {fmtCompact(data.totalBudget)}</span>}
+        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>This month</span>
+        {data && <span style={{ fontSize: '12px', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>{fmtCompact(data.totalSpent)} of {fmtCompact(data.totalBudget)}</span>}
       </div>
 
       {/* Budget progress bar */}
       {data && (
-        <div style={{ height: '5px', background: '#242424', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ height: '5px', background: '#525252', borderRadius: '3px', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, borderRadius: '3px', background: pct >= 100 ? '#ff6b6b' : pct >= 85 ? '#f5a623' : '#4d9fff', transition: 'width 0.5s ease' }} />
         </div>
       )}
 
-      {loading && <div style={{ color: '#505050', fontSize: '12px' }}>Loading...</div>}
+      {loading && <div style={{ color: '#c0c0c0', fontSize: '12px' }}>Loading...</div>}
 
       {/* Category bars */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {cats.map((c: any) => (
           <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '80px', fontSize: '12px', color: '#909090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{c.name}</div>
-            <div style={{ flex: 1, height: '5px', background: '#242424', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ width: '80px', fontSize: '12px', color: '#c0c0c0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{c.name}</div>
+            <div style={{ flex: 1, height: '5px', background: '#525252', borderRadius: '3px', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${(c.spent / maxSpent) * 100}%`, borderRadius: '3px', background: c.color ?? '#4d9fff', transition: 'width 0.5s ease' }} />
             </div>
             <div style={{ width: '56px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', textAlign: 'right', flexShrink: 0 }}>{fmtCompact(c.spent)}</div>
@@ -288,7 +288,7 @@ function SpendingCategories() {
       </div>
 
       {!loading && cats.length === 0 && (
-        <div style={{ fontSize: '13px', color: '#505050' }}>No spending this month yet</div>
+        <div style={{ fontSize: '13px', color: '#c0c0c0' }}>No spending this month yet</div>
       )}
     </div>
   )
@@ -299,20 +299,20 @@ function EquityPerformance({ holdings, refreshing, onRefresh }: { holdings: any[
   const dailyTotal = holdings.reduce((s, h) => s + (h.shares * h.dailyChange), 0)
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #9d7cf4', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Equity today</span>
+        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Equity today</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '13px', fontFamily: 'DM Mono, monospace', color: dailyTotal >= 0 ? '#3ddc84' : '#ff6b6b', fontWeight: 500 }}>
             {dailyTotal >= 0 ? '+' : ''}{fmtCompact(dailyTotal)}
           </span>
-          <button onClick={onRefresh} disabled={refreshing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', padding: 0, display: 'flex' }}>
+          <button onClick={onRefresh} disabled={refreshing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0c0c0', padding: 0, display: 'flex' }}>
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {holdings.length === 0 && <div style={{ fontSize: '13px', color: '#505050' }}>No positions yet</div>}
+      {holdings.length === 0 && <div style={{ fontSize: '13px', color: '#c0c0c0' }}>No positions yet</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
         {holdings.map((h: any, i: number) => (
@@ -324,7 +324,7 @@ function EquityPerformance({ holdings, refreshing, onRefresh }: { holdings: any[
                 color={h.dailyChangePct >= 0 ? '#3ddc84' : '#ff6b6b'}
               />
             </div>
-            <div style={{ width: '64px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#909090', textAlign: 'right', flexShrink: 0 }}>{fmtPrice(h.currentPrice)}</div>
+            <div style={{ width: '64px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', textAlign: 'right', flexShrink: 0 }}>{fmtPrice(h.currentPrice)}</div>
             <div style={{ width: '56px', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, textAlign: 'right', padding: '2px 6px', borderRadius: '4px', flexShrink: 0,
               color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
               background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
@@ -380,15 +380,15 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
 
   if (!data) return null
 
-  const inputStyle = { background: '#1e1e1e', border: '0.5px solid #363636', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%', fontFamily: 'DM Mono, monospace' }
-  const labelStyle = { fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '4px' }
+  const inputStyle = { background: '#4e4e4e', border: '0.5px solid #363636', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%', fontFamily: 'DM Mono, monospace' }
+  const labelStyle = { fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#c0c0c0', fontFamily: 'DM Mono, monospace', marginBottom: '4px' }
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer', borderBottom: expanded ? '0.5px solid #242424' : 'none' }}
         onClick={() => setExpanded(e => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Portfolio detail</span>
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Portfolio detail</span>
           <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0' }}>{fmtCompact(data.totalValue)}</span>
           <span style={{ fontSize: '12px', fontFamily: 'DM Mono, monospace', color: data.totalGainLoss >= 0 ? '#3ddc84' : '#ff6b6b' }}>
             {data.totalGainLoss >= 0 ? '+' : ''}{fmtCompact(data.totalGainLoss)} total
@@ -396,7 +396,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={e => { e.stopPropagation(); onRefresh() }} disabled={refreshing}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', padding: 0 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0c0c0', padding: 0 }}>
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
           {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
@@ -408,14 +408,14 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
           {/* Add button */}
           <div style={{ padding: '10px 16px', borderBottom: '0.5px solid #242424', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => setShowAdd(s => !s)}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#505050', background: 'none', border: '0.5px solid #363636', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#c0c0c0', background: 'none', border: '0.5px solid #363636', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>
               <Plus size={10} /> Add ticker
             </button>
           </div>
 
           {/* Add form */}
           {showAdd && (
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #242424', background: '#1e1e1e', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #242424', background: '#4e4e4e', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                 {[['Ticker', 'ticker', 'NVDA'], ['Shares', 'shares', '0'], ['Cost basis', 'cost_basis', '0.00']].map(([label, key, ph]) => (
                   <div key={key}><div style={labelStyle}>{label}</div>
@@ -425,8 +425,8 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                 ))}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={addPosition} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Add</button>
-                <button onClick={() => setShowAdd(false)} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#505050', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={addPosition} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#686868', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Add</button>
+                <button onClick={() => setShowAdd(false)} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#c0c0c0', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
           )}
@@ -436,7 +436,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
             <thead>
               <tr style={{ borderBottom: '0.5px solid #242424' }}>
                 {['Ticker', 'Bucket', 'Price', 'Value', 'P&L', 'Day', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: h === '' ? 'center' : 'left', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{h}</th>
+                  <th key={h} style={{ padding: '8px 12px', textAlign: h === '' ? 'center' : 'left', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -449,7 +449,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   <td style={{ padding: '9px 12px' }}>
                     <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket}</span>
                   </td>
-                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#909090' }}>{fmtPrice(h.currentPrice)}</td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtCompact(h.currentValue) : '—'}</td>
                   <td style={{ padding: '9px 12px' }}>
                     {h.shares > 0 ? <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtCompact(h.gainLoss)}</div> : <span style={{ color: '#303030' }}>—</span>}
@@ -478,7 +478,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
             <div>
               <div style={labelStyle}>War chest</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '12px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>$</span>
+                <span style={{ fontSize: '12px', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>$</span>
                 <input value={warChestInput} onChange={e => setWarChestInput(e.target.value)} onBlur={saveWarChest} style={{ ...inputStyle, width: '120px' }} />
               </div>
             </div>
@@ -504,11 +504,11 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
       {editPosition && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
           onClick={() => setEditPosition(null)}>
-          <div style={{ background: '#1a1a1a', border: '1px solid #242424', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '16px' }}
+          <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '16px' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '16px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0' }}>{editPosition.ticker}</span>
-              <button onClick={() => setEditPosition(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', fontSize: '20px', lineHeight: 1 }}>×</button>
+              <button onClick={() => setEditPosition(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0c0c0', fontSize: '20px', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {[['Shares', 'shares'], ['Cost basis', 'cost_basis'], ['Dip trigger ($)', 'dip_trigger'], ['Target alloc (%)', 'target_allocation']].map(([label, key]) => (
@@ -517,8 +517,8 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
               ))}
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={savePosition} style={{ flex: 1, fontSize: '13px', padding: '8px', borderRadius: '8px', background: '#f0f0f0', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Save</button>
-              <button onClick={() => setEditPosition(null)} style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: '#505050', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={savePosition} style={{ flex: 1, fontSize: '13px', padding: '8px', borderRadius: '8px', background: '#f0f0f0', color: '#686868', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Save</button>
+              <button onClick={() => setEditPosition(null)} style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: '#c0c0c0', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -561,13 +561,13 @@ function ManualAccountsSection({ onTotalChange }: { onTotalChange: (n: number) =
   }
 
   const total = accounts.reduce((s, a) => s + a.balance, 0)
-  const inputStyle = { background: '#1e1e1e', border: '0.5px solid #363636', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%' }
+  const inputStyle = { background: '#4e4e4e', border: '0.5px solid #363636', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%' }
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Investment accounts</span>
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Investment accounts</span>
           {total > 0 && <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f5a623' }}>{fmtCompact(total)}</span>}
         </div>
         {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
@@ -581,13 +581,13 @@ function ManualAccountsSection({ onTotalChange }: { onTotalChange: (n: number) =
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f5a623' }} />
                 <div>
                   <div style={{ fontSize: '13px', color: '#f0f0f0' }}>{a.name}</div>
-                  <div style={{ fontSize: '11px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{a.account_type}</div>
+                  <div style={{ fontSize: '11px', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>{a.account_type}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '13px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f5a623' }}>{fmtCompact(a.balance)}</span>
                 <button onClick={() => { setEditAccount(a); setShowAdd(false); setForm({ name: a.name, account_type: a.account_type, balance: a.balance.toString() }) }}
-                  style={{ fontSize: '11px', color: '#505050', background: 'none', border: 'none', cursor: 'pointer' }}>edit</button>
+                  style={{ fontSize: '11px', color: '#c0c0c0', background: 'none', border: 'none', cursor: 'pointer' }}>edit</button>
                 <button onClick={async () => { await fetch(`/api/finance/manual?id=${a.id}`, { method: 'DELETE' }); updateTotal(accounts.filter(x => x.id !== a.id)) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#303030', padding: 0 }}>
                   <X size={12} />
@@ -599,32 +599,32 @@ function ManualAccountsSection({ onTotalChange }: { onTotalChange: (n: number) =
           <div style={{ padding: '10px 16px', borderTop: accounts.length > 0 ? '0.5px solid #242424' : 'none' }}>
             {!(showAdd || editAccount) ? (
               <button onClick={() => { setShowAdd(true); setEditAccount(null); setForm({ name: '', account_type: 'Real Estate', balance: '' }) }}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#505050', background: 'none', border: '0.5px solid #363636', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#c0c0c0', background: 'none', border: '0.5px solid #363636', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>
                 <Plus size={10} /> Add account
               </button>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', marginBottom: '4px' }}>Name</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', marginBottom: '4px' }}>Name</div>
                     <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Fundrise" style={inputStyle} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', marginBottom: '4px' }}>Type</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', marginBottom: '4px' }}>Type</div>
                     <select value={form.account_type} onChange={e => setForm(p => ({ ...p, account_type: e.target.value }))} style={inputStyle}>
                       {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', marginBottom: '4px' }}>Amount ($)</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', marginBottom: '4px' }}>Amount ($)</div>
                     <input type="number" value={form.balance} onChange={e => setForm(p => ({ ...p, balance: e.target.value }))} placeholder="0" style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={save} disabled={saving || !form.name || !form.balance} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                  <button onClick={save} disabled={saving || !form.name || !form.balance} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#686868', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
                     {saving ? 'Saving...' : editAccount ? 'Update' : 'Add'}
                   </button>
-                  <button onClick={() => { setShowAdd(false); setEditAccount(null) }} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#505050', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={() => { setShowAdd(false); setEditAccount(null) }} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#c0c0c0', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
                 </div>
               </div>
             )}
@@ -640,15 +640,15 @@ function BankAccounts({ finance, isConnected, onConnect, linking }: { finance: a
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Bank accounts</span>
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Bank accounts</span>
           {finance?.total_cash > 0 && <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#3ddc84' }}>{fmtCompact(finance.total_cash)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={e => { e.stopPropagation(); onConnect() }} disabled={linking}
-            style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', border: '0.5px solid #363636', background: 'transparent', color: '#505050', cursor: 'pointer' }}>
+            style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', border: '0.5px solid #363636', background: 'transparent', color: '#c0c0c0', cursor: 'pointer' }}>
             {linking ? 'Connecting...' : isConnected ? '+ add' : 'Connect Plaid'}
           </button>
           {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
@@ -663,7 +663,7 @@ function BankAccounts({ finance, isConnected, onConnect, linking }: { finance: a
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: TYPE_COLOR[a.type] ?? '#888', boxShadow: `0 0 5px ${(TYPE_COLOR[a.type] ?? '#888')}60` }} />
                 <div>
                   <div style={{ fontSize: '13px', color: '#f0f0f0' }}>{a.name}</div>
-                  <div style={{ fontSize: '11px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{TYPE_LABEL[a.type] ?? a.type} · ••{a.mask}</div>
+                  <div style={{ fontSize: '11px', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>{TYPE_LABEL[a.type] ?? a.type} · ••{a.mask}</div>
                 </div>
               </div>
               <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: a.type === 'credit' ? '#ff6b6b' : '#f0f0f0' }}>{fmt(a.balance)}</div>
@@ -747,8 +747,8 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
       {/* ── KPI Row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '10px' }}>
         {/* Net worth hero */}
-        <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #3ddc84', borderRadius: '12px', padding: '16px 20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>Net worth</div>
+        <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>Net worth</div>
           <div style={{ fontSize: '32px', fontWeight: 300, fontFamily: 'DM Mono, monospace', color: '#f0f0f0', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
             {loading ? '—' : fmtCompact(netWorth)}
           </div>
@@ -759,8 +759,8 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
           { label: 'Cash', value: financeData ? fmtCompact(financeData.total_cash) : '—', color: '#3ddc84' },
           { label: 'Credit', value: financeData ? fmtCompact(financeData.total_credit_balance) : '—', color: '#ff6b6b' },
         ].map(k => (
-          <div key={k.label} style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', padding: '16px 20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>{k.label}</div>
+          <div key={k.label} style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px 20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>{k.label}</div>
             <div style={{ fontSize: '20px', fontWeight: 300, fontFamily: 'DM Mono, monospace', color: k.color, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{k.value}</div>
           </div>
         ))}

@@ -40,7 +40,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      background: '#111111',
+      background: '#3f3f3f',
       borderRight: '1px solid #242424',
     }}>
       {/* Logo */}
@@ -55,7 +55,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
           }}>Meridian</span>
           <span style={{
             fontSize: '9px',
-            color: '#505050',
+            color: '#c0c0c0',
             fontFamily: "'DM Mono', monospace",
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
@@ -63,7 +63,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
         </div>
         <p style={{
           fontSize: '11px',
-          color: '#505050',
+          color: '#c0c0c0',
           marginTop: '3px',
           fontFamily: "'DM Mono', monospace",
         }}>
@@ -84,21 +84,21 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
                 padding: '7px 10px',
                 borderRadius: '8px',
                 fontSize: '13px',
-                color: active ? '#f0f0f0' : '#505050',
-                background: active ? '#1e1e1e' : 'transparent',
+                color: active ? '#f0f0f0' : '#c0c0c0',
+                background: active ? '#4e4e4e' : 'transparent',
                 transition: 'all 0.15s ease',
                 textDecoration: 'none',
                 fontFamily: "'DM Sans', sans-serif",
               }}
               onMouseEnter={e => {
                 if (!active) {
-                  (e.currentTarget as HTMLElement).style.color = '#909090'
-                  ;(e.currentTarget as HTMLElement).style.background = '#1a1a1a'
+                  (e.currentTarget as HTMLElement).style.color = '#c0c0c0'
+                  ;(e.currentTarget as HTMLElement).style.background = '#444444'
                 }
               }}
               onMouseLeave={e => {
                 if (!active) {
-                  (e.currentTarget as HTMLElement).style.color = '#505050'
+                  (e.currentTarget as HTMLElement).style.color = '#c0c0c0'
                   ;(e.currentTarget as HTMLElement).style.background = 'transparent'
                 }
               }}
@@ -112,12 +112,12 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
 
       {/* Footer */}
       <div style={{ padding: '12px 16px', borderTop: '1px solid #242424', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '11px', color: '#505050', fontFamily: "'DM Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
+        <span style={{ fontSize: '11px', color: '#c0c0c0', fontFamily: "'DM Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
           {userEmail}
         </span>
         <button onClick={signOut} style={{
           fontSize: '11px',
-          color: '#505050',
+          color: '#c0c0c0',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
@@ -125,7 +125,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
           transition: 'color 0.15s',
         }}
           onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#f0f0f0'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#505050'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#c0c0c0'}
         >
           sign out
         </button>
