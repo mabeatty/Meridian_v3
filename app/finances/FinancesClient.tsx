@@ -1,446 +1,470 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts'
-import { TrendingUp, TrendingDown, RefreshCw, Plus, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { TrendingUp, TrendingDown, RefreshCw, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
 
 // ─── Formatters ───────────────────────────────────────────────
-const fmt = (n: number) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0
-}).format(n)
-
-const fmtCompact = (n: number) => {
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
-  return fmt(n)
-}
-
-const fmtPrice = (n: number) => n.toLocaleString('en-US', {
-  style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
-})
-
+const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+const fmtCompact = (n: number) => { if (Math.abs(n) >= 1_000_000) return `$${(n/1_000_000).toFixed(1)}M`; if (Math.abs(n) >= 1_000) return `$${(n/1_000).toFixed(0)}K`; return fmt(n) }
+const fmtPrice = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
 
-const TYPE_LABEL: Record<string, string> = {
-  depository: 'Cash', investment: 'Investment', credit: 'Credit', loan: 'Loan',
-}
-
-const TYPE_COLOR: Record<string, string> = {
-  depository: '#3ddc84', investment: '#4d9fff', credit: '#ff6b6b', loan: '#f5a623',
-}
-
-const BUCKET_COLORS: Record<string, string> = {
-  'AI Core': '#4d9fff', 'Energy': '#3ddc84', 'Nuclear': '#9d7cf4', 'Obscure': '#f5a623',
-}
-
 const ACCOUNT_TYPES = ['Real Estate', 'Private Equity', 'Venture', 'Angel', 'Debt', 'Other']
+const BUCKETS = ['AI Core', 'Energy', 'Nuclear', 'Obscure', 'Other']
+const BUCKET_COLORS: Record<string, string> = { 'AI Core': '#4d9fff', 'Energy': '#3ddc84', 'Nuclear': '#9d7cf4', 'Obscure': '#f5a623' }
+const TYPE_COLOR: Record<string, string> = { depository: '#3ddc84', investment: '#4d9fff', credit: '#ff6b6b', loan: '#f5a623' }
+const TYPE_LABEL: Record<string, string> = { depository: 'Cash', investment: 'Investment', credit: 'Credit', loan: 'Loan' }
 
-// ─── Custom Tooltip ───────────────────────────────────────────
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null
+// ─── Sparkline ────────────────────────────────────────────────
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || data.length < 2) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const w = canvas.width, h = canvas.height
+    const min = Math.min(...data), max = Math.max(...data)
+    const range = max - min || 1
+    ctx.clearRect(0, 0, w, h)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1.5
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    data.forEach((v, i) => {
+      const x = (i / (data.length - 1)) * w
+      const y = h - ((v - min) / range) * (h - 4) - 2
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+  }, [data, color])
+  return <canvas ref={canvasRef} width={80} height={24} style={{ display: 'block' }} />
+}
+
+// ─── Bar Chart ────────────────────────────────────────────────
+function SpendingChart({ period, onPeriodChange }: { period: string; onPeriodChange: (p: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const chartRef = useRef<any>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    const months = period === '3m' ? 3 : period === '6m' ? 6 : 12
+    fetch(`/api/budget/history?months=${months}`)
+      .then(r => r.json())
+      .then(res => setData(res.data ?? []))
+      .finally(() => setLoading(false))
+  }, [period])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !data.length) return
+    const w = canvas.width = canvas.offsetWidth * window.devicePixelRatio
+    const h = canvas.height = canvas.offsetHeight * window.devicePixelRatio
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+    const cw = canvas.offsetWidth, ch = canvas.offsetHeight
+
+    ctx.clearRect(0, 0, cw, ch)
+
+    const padL = 44, padR = 8, padT = 8, padB = 28
+    const chartW = cw - padL - padR
+    const chartH = ch - padT - padB
+
+    const maxVal = Math.max(...data.map((d: any) => Math.max(d.spent, d.budget)), 1)
+    const maxBudget = data[0]?.budget ?? 0
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(128,128,128,0.12)'
+    ctx.lineWidth = 0.5
+    const gridLines = 4
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padT + chartH - (i / gridLines) * chartH
+      ctx.beginPath()
+      ctx.moveTo(padL, y)
+      ctx.lineTo(padL + chartW, y)
+      ctx.stroke()
+      // Y label
+      ctx.fillStyle = 'rgba(128,128,128,0.7)'
+      ctx.font = '10px var(--font-mono, monospace)'
+      ctx.textAlign = 'right'
+      const val = (i / gridLines) * maxVal
+      ctx.fillText('$' + (val >= 1000 ? (val/1000).toFixed(0) + 'k' : val.toFixed(0)), padL - 4, y + 3)
+    }
+
+    const barW = Math.max(8, (chartW / data.length) * 0.55)
+    const gap = chartW / data.length
+
+    data.forEach((d: any, i: number) => {
+      const x = padL + i * gap + gap / 2
+      const barH = (d.spent / maxVal) * chartH
+      const barY = padT + chartH - barH
+      const overBudget = maxBudget > 0 && d.spent > maxBudget
+
+      // Bar
+      ctx.fillStyle = overBudget ? '#ff6b6b' : '#4d9fff'
+      const radius = 3
+      ctx.beginPath()
+      ctx.moveTo(x - barW/2 + radius, barY)
+      ctx.lineTo(x + barW/2 - radius, barY)
+      ctx.quadraticCurveTo(x + barW/2, barY, x + barW/2, barY + radius)
+      ctx.lineTo(x + barW/2, padT + chartH)
+      ctx.lineTo(x - barW/2, padT + chartH)
+      ctx.lineTo(x - barW/2, barY + radius)
+      ctx.quadraticCurveTo(x - barW/2, barY, x - barW/2 + radius, barY)
+      ctx.closePath()
+      ctx.fill()
+
+      // X label
+      ctx.fillStyle = 'rgba(128,128,128,0.8)'
+      ctx.font = '10px var(--font-sans, sans-serif)'
+      ctx.textAlign = 'center'
+      ctx.fillText(d.label, x, padT + chartH + 16)
+    })
+
+    // Budget line
+    if (maxBudget > 0) {
+      const budgetY = padT + chartH - (maxBudget / maxVal) * chartH
+      ctx.strokeStyle = '#f5a623'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([4, 3])
+      ctx.beginPath()
+      ctx.moveTo(padL, budgetY)
+      ctx.lineTo(padL + chartW, budgetY)
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+  }, [data])
+
   return (
-    <div className="bg-surface-3 border border-border rounded-lg px-3 py-2 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
-      <div className="text-text-tertiary mb-1.5 font-mono">{label}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-text-secondary">{p.name}</span>
-          <span className="font-mono ml-auto pl-4" style={{ color: p.color }}>
-            {fmt(p.value)}
-          </span>
+    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #4d9fff', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Spending vs budget</span>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {['3m','6m','12m'].map(p => (
+            <button key={p} onClick={() => onPeriodChange(p)}
+              style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', border: '0.5px solid', cursor: 'pointer', fontFamily: 'DM Mono, monospace',
+                borderColor: period === p ? 'transparent' : '#363636',
+                background: period === p ? '#1a2d4d' : 'transparent',
+                color: period === p ? '#4d9fff' : '#505050' }}>
+              {p.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+      {loading ? (
+        <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#505050', fontSize: '12px' }}>Loading...</div>
+      ) : (
+        <div style={{ position: 'relative', width: '100%', height: '180px' }}>
+          <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#505050' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#4d9fff', display: 'inline-block' }} />Spent
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: '10px', height: '2px', background: '#f5a623', display: 'inline-block' }} />Budget
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ff6b6b', display: 'inline-block' }} />Over budget
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Account Groups ───────────────────────────────────────────
+function AccountGroups({ finance, manualAccounts, portfolio }: { finance: any; manualAccounts: any[]; portfolio: any }) {
+  const groups: { label: string; sub: string; value: number; color: string; change?: string; changePos?: boolean }[] = []
+
+  if (portfolio?.totalValue > 0) {
+    const dailyPnL = portfolio.holdings?.reduce((s: number, h: any) => s + (h.shares * h.dailyChange), 0) ?? 0
+    groups.push({
+      label: 'Stock portfolio',
+      sub: portfolio.holdings?.map((h: any) => h.ticker).slice(0, 4).join(', ') + (portfolio.holdings?.length > 4 ? ` +${portfolio.holdings.length - 4}` : ''),
+      value: portfolio.totalValue,
+      color: '#4d9fff',
+      change: `${dailyPnL >= 0 ? '+' : ''}${fmtCompact(dailyPnL)} today`,
+      changePos: dailyPnL >= 0,
+    })
+  }
+
+  // Group manual accounts by type
+  const grouped: Record<string, number> = {}
+  for (const a of manualAccounts) {
+    grouped[a.account_type] = (grouped[a.account_type] ?? 0) + a.balance
+  }
+  const typeColors: Record<string, string> = {
+    'Real Estate': '#f5a623', 'Private Equity': '#9d7cf4', 'Venture': '#9d7cf4',
+    'Angel': '#9d7cf4', 'Debt': '#ff6b6b', 'Other': '#888'
+  }
+  for (const [type, val] of Object.entries(grouped)) {
+    if (val > 0) groups.push({ label: type, sub: 'manual', value: val, color: typeColors[type] ?? '#888' })
+  }
+
+  if (finance?.total_cash > 0) {
+    groups.push({ label: 'Cash accounts', sub: `${finance.accounts?.filter((a: any) => a.type === 'depository').length ?? 0} linked`, value: finance.total_cash, color: '#3ddc84' })
+  }
+
+  if (finance?.total_credit_balance > 0) {
+    groups.push({ label: 'Credit', sub: 'balance due', value: finance.total_credit_balance, color: '#ff6b6b' })
+  }
+
+  return (
+    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #f5a623', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '0' }}>
+      <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '12px' }}>
+        Accounts & holdings
+      </div>
+      {groups.map((g, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < groups.length - 1 ? '0.5px solid #242424' : 'none' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: g.color, flexShrink: 0, boxShadow: `0 0 6px ${g.color}60` }} />
+            <div>
+              <div style={{ fontSize: '13px', color: '#f0f0f0' }}>{g.label}</div>
+              <div style={{ fontSize: '11px', color: '#505050', marginTop: '1px', fontFamily: 'DM Mono, monospace' }}>{g.sub}</div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: g.label === 'Credit' ? '#ff6b6b' : '#f0f0f0' }}>{fmtCompact(g.value)}</div>
+            {g.change && <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: g.changePos ? '#3ddc84' : '#ff6b6b', marginTop: '1px' }}>{g.change}</div>}
+          </div>
         </div>
       ))}
     </div>
   )
 }
 
-// ─── Hero KPI Card ────────────────────────────────────────────
-function HeroKPI({ value, label, sub, trend }: {
-  value: string; label: string; sub?: string | null; trend?: number | null
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline gap-2">
-        <span className="text-4xl font-light font-mono tracking-tight text-text-primary tabular">{value}</span>
-        {trend != null && (
-          <span className={`flex items-center gap-0.5 text-xs font-mono ${trend >= 0 ? 'text-accent' : 'text-accent-red'}`}>
-            {trend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-            {Math.abs(trend).toFixed(1)}%
-          </span>
-        )}
-      </div>
-      <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono">{label}</span>
-      {sub && <span className="text-xs text-text-tertiary font-mono">{sub}</span>}
-    </div>
-  )
-}
-
-// ─── Mini KPI ─────────────────────────────────────────────────
-function MiniKPI({ value, label, color }: { value: string; label: string; color: string }) {
-  return (
-    <div className="flex flex-col gap-1 px-4 py-3 bg-surface-3 rounded-xl border border-border">
-      <span className="text-lg font-light font-mono tabular" style={{ color }}>{value}</span>
-      <span className="text-[10px] text-text-tertiary uppercase tracking-wider font-mono">{label}</span>
-    </div>
-  )
-}
-
-// ─── Stock Portfolio ──────────────────────────────────────────
-function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
+// ─── Spending Categories ──────────────────────────────────────
+function SpendingCategories() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    const month = new Date().toISOString().slice(0, 7)
+    fetch(`/api/budget/summary?month=${month}`)
+      .then(r => r.json())
+      .then(setData)
+      .finally(() => setLoading(false))
+  }, [])
+
+  const cats = (data?.summary ?? [])
+    .filter((c: any) => c.name !== 'Transfer / Excluded' && c.spent > 0)
+    .sort((a: any, b: any) => b.spent - a.spent)
+    .slice(0, 7)
+
+  const maxSpent = Math.max(...cats.map((c: any) => c.spent), 1)
+  const pct = data?.totalBudget > 0 ? Math.min((data.totalSpent / data.totalBudget) * 100, 100) : 0
+
+  return (
+    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #3ddc84', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>This month</span>
+        {data && <span style={{ fontSize: '12px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{fmtCompact(data.totalSpent)} of {fmtCompact(data.totalBudget)}</span>}
+      </div>
+
+      {/* Budget progress bar */}
+      {data && (
+        <div style={{ height: '5px', background: '#242424', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, borderRadius: '3px', background: pct >= 100 ? '#ff6b6b' : pct >= 85 ? '#f5a623' : '#4d9fff', transition: 'width 0.5s ease' }} />
+        </div>
+      )}
+
+      {loading && <div style={{ color: '#505050', fontSize: '12px' }}>Loading...</div>}
+
+      {/* Category bars */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {cats.map((c: any) => (
+          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '80px', fontSize: '12px', color: '#909090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{c.name}</div>
+            <div style={{ flex: 1, height: '5px', background: '#242424', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${(c.spent / maxSpent) * 100}%`, borderRadius: '3px', background: c.color ?? '#4d9fff', transition: 'width 0.5s ease' }} />
+            </div>
+            <div style={{ width: '56px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', textAlign: 'right', flexShrink: 0 }}>{fmtCompact(c.spent)}</div>
+          </div>
+        ))}
+      </div>
+
+      {!loading && cats.length === 0 && (
+        <div style={{ fontSize: '13px', color: '#505050' }}>No spending this month yet</div>
+      )}
+    </div>
+  )
+}
+
+// ─── Equity Performance ───────────────────────────────────────
+function EquityPerformance({ holdings, refreshing, onRefresh }: { holdings: any[]; refreshing: boolean; onRefresh: () => void }) {
+  const dailyTotal = holdings.reduce((s, h) => s + (h.shares * h.dailyChange), 0)
+
+  return (
+    <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #9d7cf4', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Equity today</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '13px', fontFamily: 'DM Mono, monospace', color: dailyTotal >= 0 ? '#3ddc84' : '#ff6b6b', fontWeight: 500 }}>
+            {dailyTotal >= 0 ? '+' : ''}{fmtCompact(dailyTotal)}
+          </span>
+          <button onClick={onRefresh} disabled={refreshing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', padding: 0, display: 'flex' }}>
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {holdings.length === 0 && <div style={{ fontSize: '13px', color: '#505050' }}>No positions yet</div>}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+        {holdings.map((h: any, i: number) => (
+          <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: i < holdings.length - 1 ? '0.5px solid #242424' : 'none' }}>
+            <div style={{ width: '48px', fontSize: '12px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0', flexShrink: 0 }}>{h.ticker}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Sparkline
+                data={[h.currentPrice * 0.985, h.currentPrice * 0.988, h.currentPrice * 0.991, h.currentPrice * 0.987, h.currentPrice * 0.993, h.currentPrice * 0.996, h.currentPrice * 0.994, h.currentPrice * 0.998, h.currentPrice]}
+                color={h.dailyChangePct >= 0 ? '#3ddc84' : '#ff6b6b'}
+              />
+            </div>
+            <div style={{ width: '64px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#909090', textAlign: 'right', flexShrink: 0 }}>{fmtPrice(h.currentPrice)}</div>
+            <div style={{ width: '56px', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, textAlign: 'right', padding: '2px 6px', borderRadius: '4px', flexShrink: 0,
+              color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
+              background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
+              {fmtPct(h.dailyChangePct)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Stock Portfolio Detail (collapsible) ─────────────────────
+function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { data: any; onDataLoad: (d: any) => void; refreshing: boolean; onRefresh: () => void }) {
+  const [expanded, setExpanded] = useState(false)
   const [editPosition, setEditPosition] = useState<any>(null)
   const [editForm, setEditForm] = useState({ shares: '', cost_basis: '', bucket: 'AI Core', dip_trigger: '', target_allocation: '' })
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core', dip_trigger: '', target_allocation: '' })
   const [warChestInput, setWarChestInput] = useState('0')
-  const [savingWarChest, setSavingWarChest] = useState(false)
-  const [sortCol, setSortCol] = useState<string>('currentValue')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
-    fetch('/api/stocks').then(r => r.json()).then(res => {
-      setData(res)
-      onDataLoad(res)
-      setWarChestInput(res.warChest?.toString() ?? '0')
-    }).finally(() => setLoading(false))
-  }, [])
-
-  async function refresh() {
-    setRefreshing(true)
-    const res = await fetch('/api/stocks?refresh=true').then(r => r.json())
-    setData(res)
-    onDataLoad(res)
-    setRefreshing(false)
-  }
+    if (data?.warChest !== undefined) setWarChestInput(data.warChest.toString())
+  }, [data?.warChest])
 
   async function savePosition() {
     if (!editPosition) return
-    await fetch('/api/stocks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'position',
-        ticker: editPosition.ticker,
-        shares: parseFloat(editForm.shares),
-        cost_basis: parseFloat(editForm.cost_basis),
-        bucket: editForm.bucket,
-        dip_trigger: editForm.dip_trigger ? parseFloat(editForm.dip_trigger) : null,
-        target_allocation: editForm.target_allocation ? parseFloat(editForm.target_allocation) : null,
-      }),
-    })
+    await fetch('/api/stocks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'position', ticker: editPosition.ticker, shares: parseFloat(editForm.shares), cost_basis: parseFloat(editForm.cost_basis), bucket: editForm.bucket, dip_trigger: editForm.dip_trigger ? parseFloat(editForm.dip_trigger) : null, target_allocation: editForm.target_allocation ? parseFloat(editForm.target_allocation) : null }) })
     const res = await fetch('/api/stocks').then(r => r.json())
-    setData(res); onDataLoad(res); setEditPosition(null)
+    onDataLoad(res); setEditPosition(null)
   }
 
   async function addPosition() {
     if (!addForm.ticker) return
-    await fetch('/api/stocks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'position',
-        ticker: addForm.ticker.toUpperCase(),
-        shares: parseFloat(addForm.shares) || 0,
-        cost_basis: parseFloat(addForm.cost_basis) || 0,
-        bucket: addForm.bucket,
-        dip_trigger: addForm.dip_trigger ? parseFloat(addForm.dip_trigger) : null,
-        target_allocation: addForm.target_allocation ? parseFloat(addForm.target_allocation) : null,
-      }),
-    })
+    await fetch('/api/stocks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'position', ticker: addForm.ticker.toUpperCase(), shares: parseFloat(addForm.shares) || 0, cost_basis: parseFloat(addForm.cost_basis) || 0, bucket: addForm.bucket, dip_trigger: addForm.dip_trigger ? parseFloat(addForm.dip_trigger) : null, target_allocation: addForm.target_allocation ? parseFloat(addForm.target_allocation) : null }) })
     const res = await fetch('/api/stocks?refresh=true').then(r => r.json())
-    setData(res); onDataLoad(res)
-    setShowAdd(false)
+    onDataLoad(res); setShowAdd(false)
     setAddForm({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core', dip_trigger: '', target_allocation: '' })
   }
 
   async function deleteTicker(ticker: string) {
-    if (!confirm(`Remove ${ticker} from portfolio?`)) return
+    if (!confirm(`Remove ${ticker}?`)) return
     await fetch(`/api/stocks?ticker=${ticker}`, { method: 'DELETE' })
     const res = await fetch('/api/stocks').then(r => r.json())
-    setData(res); onDataLoad(res)
+    onDataLoad(res)
   }
 
   async function saveWarChest() {
-    setSavingWarChest(true)
-    await fetch('/api/stocks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'war_chest', war_chest: parseFloat(warChestInput) }),
-    })
-    setSavingWarChest(false)
+    await fetch('/api/stocks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'war_chest', war_chest: parseFloat(warChestInput) }) })
   }
-
-  function toggleSort(col: string) {
-    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortCol(col); setSortDir('desc') }
-  }
-
-  if (loading) return (
-    <>
-      {[1, 2, 3].map(i => (
-        <div key={i} className="bg-surface-2 border border-border rounded-xl p-5 animate-pulse">
-          <div className="h-4 bg-surface-3 rounded w-1/3 mb-3" />
-          <div className="h-8 bg-surface-3 rounded w-1/2" />
-        </div>
-      ))}
-    </>
-  )
 
   if (!data) return null
 
-  const sortedHoldings = [...(data.holdings ?? [])].sort((a: any, b: any) => {
-    const av = a[sortCol] ?? 0, bv = b[sortCol] ?? 0
-    return sortDir === 'desc' ? bv - av : av - bv
-  })
-
-  const dailyPnL = data.holdings?.reduce((s: number, h: any) => s + (h.shares * h.dailyChange), 0) ?? 0
-  const topMover = [...(data.holdings ?? [])].sort((a: any, b: any) => Math.abs(b.dailyChangePct) - Math.abs(a.dailyChangePct))[0]
-
-  function SortIcon({ col }: { col: string }) {
-    if (sortCol !== col) return <ChevronDown size={10} className="text-text-dim" />
-    return sortDir === 'desc' ? <ChevronDown size={10} className="text-accent" /> : <ChevronUp size={10} className="text-accent" />
-  }
-
-  const BUCKETS = ['AI Core', 'Energy', 'Nuclear', 'Obscure', 'Other']
+  const inputStyle = { background: '#1e1e1e', border: '0.5px solid #363636', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%', fontFamily: 'DM Mono, monospace' }
+  const labelStyle = { fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '4px' }
 
   return (
-    <>
-      {/* Left — Portfolio summary */}
-      <div className="rounded-xl p-5 flex flex-col gap-4" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #4d9fff' }}>
-        <div className="flex items-center justify-between">
-          <span className="widget-label">Portfolio</span>
-          <button onClick={refresh} disabled={refreshing}
-            className="btn-ghost">
-            <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
-            {refreshing ? 'updating' : 'refresh'}
+    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer', borderBottom: expanded ? '0.5px solid #242424' : 'none' }}
+        onClick={() => setExpanded(e => !e)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Portfolio detail</span>
+          <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0' }}>{fmtCompact(data.totalValue)}</span>
+          <span style={{ fontSize: '12px', fontFamily: 'DM Mono, monospace', color: data.totalGainLoss >= 0 ? '#3ddc84' : '#ff6b6b' }}>
+            {data.totalGainLoss >= 0 ? '+' : ''}{fmtCompact(data.totalGainLoss)} total
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={e => { e.stopPropagation(); onRefresh() }} disabled={refreshing}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', padding: 0 }}>
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="text-3xl font-light font-mono tabular text-text-primary tracking-tight">
-            {fmt(data.totalValue)}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`flex items-center gap-1 text-sm font-mono ${data.totalGainLoss >= 0 ? 'text-accent' : 'text-accent-red'}`}>
-              {data.totalGainLoss >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-              {fmtCompact(data.totalGainLoss)}
-              <span className="text-text-tertiary text-xs">total</span>
-            </span>
-          </div>
-          <div className={`text-sm font-mono flex items-center gap-1 ${dailyPnL >= 0 ? 'text-accent' : 'text-accent-red'}`}>
-            {dailyPnL >= 0 ? '+' : ''}{fmtCompact(dailyPnL)}
-            <span className="text-text-tertiary text-xs ml-0.5">today</span>
-          </div>
-        </div>
-
-        {topMover && (
-          <div className="bg-surface-3 rounded-lg p-3 border border-border">
-            <div className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1.5 font-mono">Top mover</div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-mono font-semibold text-text-primary">{topMover.ticker}</span>
-              <span className={`text-sm font-mono font-medium ${topMover.dailyChangePct >= 0 ? 'text-accent' : 'text-accent-red'}`}>
-                {fmtPct(topMover.dailyChangePct)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Allocation bars */}
-        <div className="flex flex-col gap-2.5 pt-1 border-t border-border">
-          <span className="widget-label">Allocation</span>
-          {(data.allocations ?? []).map((a: any) => (
-            <div key={a.bucket} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-secondary">{a.bucket}</span>
-                <div className="flex items-center gap-2">
-                  {a.target > 0 && <span className="text-[10px] font-mono text-text-dim">t:{a.target}%</span>}
-                  <span className="text-[10px] font-mono font-medium"
-                    style={{
-                      color: a.target > 0
-                        ? Math.abs(a.current - a.target) <= 2 ? '#3ddc84'
-                          : Math.abs(a.current - a.target) <= 5 ? '#f5a623' : '#ff6b6b'
-                        : '#909090'
-                    }}>
-                    {a.current.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-              <div className="relative h-1.5 bg-surface-4 rounded-full overflow-hidden">
-                {a.target > 0 && (
-                  <div className="absolute top-0 bottom-0 w-px bg-surface-4 z-10"
-                    style={{ left: `${Math.min(a.target, 99)}%` }} />
-                )}
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${Math.min(a.current, 100)}%`,
-                    backgroundColor: BUCKET_COLORS[a.bucket] ?? '#909090',
-                    opacity: 0.8,
-                  }} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* War chest */}
-        <div className="flex flex-col gap-2 pt-1 border-t border-border">
-          <span className="widget-label">War chest</span>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-text-tertiary font-mono">$</span>
-            <input
-              value={warChestInput}
-              onChange={e => setWarChestInput(e.target.value)}
-              onBlur={saveWarChest}
-              disabled={savingWarChest}
-              className="flex-1 bg-surface-3 border border-border rounded-lg px-2.5 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong text-right"
-            />
-          </div>
-          {/* Dip triggers */}
-          <div className="flex flex-col gap-1.5">
-            {(data.holdings ?? []).filter((h: any) => h.dipTrigger).map((h: any) => (
-              <div key={h.ticker} className="flex items-center justify-between">
-                <span className="text-xs font-mono font-semibold text-text-primary">{h.ticker}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-text-tertiary">≤{fmtPrice(h.dipTrigger)}</span>
-                  <span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded ${h.atDip ? 'bg-accent-red/10 text-accent-red' : 'bg-accent/10 text-accent'}`}>
-                    {fmtPrice(h.currentPrice)} {h.atDip ? '🔴 BUY' : '✓'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="text-[10px] text-text-dim font-mono">
-          {data.pricesUpdatedAt ? `Updated ${new Date(data.pricesUpdatedAt).toLocaleTimeString()}` : ''}
+          {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
         </div>
       </div>
 
-      {/* Center — Holdings table */}
-      <div className="bg-surface-2 border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-          <span className="widget-label">Holdings</span>
-          <button onClick={() => setShowAdd(true)}
-            className="btn-ghost">
-            <Plus size={11} /> add ticker
-          </button>
-        </div>
-
-        {/* Add ticker form */}
-        {showAdd && (
-          <div className="px-5 py-4 border-b border-border bg-surface-3 flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Ticker</label>
-                <input value={addForm.ticker} onChange={e => setAddForm(p => ({ ...p, ticker: e.target.value.toUpperCase() }))}
-                  placeholder="NVDA" className="bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong uppercase" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Shares</label>
-                <input type="number" value={addForm.shares} onChange={e => setAddForm(p => ({ ...p, shares: e.target.value }))}
-                  placeholder="0" className="bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Cost basis</label>
-                <input type="number" value={addForm.cost_basis} onChange={e => setAddForm(p => ({ ...p, cost_basis: e.target.value }))}
-                  placeholder="0.00" className="bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Bucket</label>
-                <select value={addForm.bucket} onChange={e => setAddForm(p => ({ ...p, bucket: e.target.value }))}
-                  className="bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-sm text-text-primary focus:outline-none">
-                  {BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Dip trigger ($)</label>
-                <input type="number" value={addForm.dip_trigger} onChange={e => setAddForm(p => ({ ...p, dip_trigger: e.target.value }))}
-                  placeholder="optional" className="bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="widget-label">Target alloc (%)</label>
-                <input type="number" value={addForm.target_allocation} onChange={e => setAddForm(p => ({ ...p, target_allocation: e.target.value }))}
-                  placeholder="optional" className="bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong" />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={addPosition} className="btn-primary text-xs py-1.5">Add ticker</button>
-              <button onClick={() => setShowAdd(false)} className="btn-ghost">Cancel</button>
-            </div>
+      {expanded && (
+        <div style={{ padding: '0 0 8px 0' }}>
+          {/* Add button */}
+          <div style={{ padding: '10px 16px', borderBottom: '0.5px solid #242424', display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setShowAdd(s => !s)}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#505050', background: 'none', border: '0.5px solid #363636', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>
+              <Plus size={10} /> Add ticker
+            </button>
           </div>
-        )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border">
-                {[
-                  { col: 'ticker', label: 'Ticker' },
-                  { col: 'bucket', label: 'Bucket' },
-                  { col: 'shares', label: 'Shares' },
-                  { col: 'costBasis', label: 'Cost' },
-                  { col: 'currentPrice', label: 'Price' },
-                  { col: 'currentValue', label: 'Value' },
-                  { col: 'gainLoss', label: 'P&L' },
-                  { col: 'dailyChangePct', label: 'Day' },
-                ].map(({ col, label }) => (
-                  <th key={col}
-                    onClick={() => toggleSort(col)}
-                    className="text-left px-3 py-2.5 text-[10px] font-semibold tracking-wider uppercase text-text-tertiary cursor-pointer hover:text-text-secondary select-none">
-                    <span className="flex items-center gap-1">
-                      {label} <SortIcon col={col} />
-                    </span>
-                  </th>
+          {/* Add form */}
+          {showAdd && (
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #242424', background: '#1e1e1e', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                {[['Ticker', 'ticker', 'NVDA'], ['Shares', 'shares', '0'], ['Cost basis', 'cost_basis', '0.00']].map(([label, key, ph]) => (
+                  <div key={key}><div style={labelStyle}>{label}</div>
+                    <input value={(addForm as any)[key]} placeholder={ph}
+                      onChange={e => setAddForm(p => ({ ...p, [key]: e.target.value }))}
+                      style={inputStyle} /></div>
                 ))}
-                <th className="px-3 py-2.5 w-8" />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={addPosition} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Add</button>
+                <button onClick={() => setShowAdd(false)} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#505050', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Holdings table */}
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '0.5px solid #242424' }}>
+                {['Ticker', 'Bucket', 'Price', 'Value', 'P&L', 'Day', ''].map(h => (
+                  <th key={h} style={{ padding: '8px 12px', textAlign: h === '' ? 'center' : 'left', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {sortedHoldings.map((h: any, i: number) => (
-                <tr key={h.ticker}
-                  className={`border-b border-border last:border-0 hover:bg-surface-3 transition-colors cursor-pointer group ${i % 2 === 0 ? '' : 'bg-[#111111]/40'}`}
-                  onClick={() => {
-                    setEditPosition(h)
-                    setEditForm({
-                      shares: h.shares.toString(),
-                      cost_basis: h.costBasis.toString(),
-                      bucket: h.bucket,
-                      dip_trigger: h.dipTrigger?.toString() ?? '',
-                      target_allocation: h.targetAllocation?.toString() ?? '',
-                    })
-                  }}>
-                  <td className="px-3 py-2.5 font-mono font-semibold text-text-primary">{h.ticker}</td>
-                  <td className="px-3 py-2.5">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ backgroundColor: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>
-                      {h.bucket}
-                    </span>
+              {data.holdings?.map((h: any, i: number) => (
+                <tr key={h.ticker} style={{ borderBottom: i < data.holdings.length - 1 ? '0.5px solid #1e1e1e' : 'none', cursor: 'pointer' }}
+                  className="hover:bg-surface-3"
+                  onClick={() => { setEditPosition(h); setEditForm({ shares: h.shares.toString(), cost_basis: h.costBasis.toString(), bucket: h.bucket, dip_trigger: h.dipTrigger?.toString() ?? '', target_allocation: h.targetAllocation?.toString() ?? '' }) }}>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</td>
+                  <td style={{ padding: '9px 12px' }}>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket}</span>
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-text-secondary">{h.shares || '—'}</td>
-                  <td className="px-3 py-2.5 font-mono text-text-secondary">{h.costBasis ? fmtPrice(h.costBasis) : '—'}</td>
-                  <td className="px-3 py-2.5 font-mono text-text-primary">{fmtPrice(h.currentPrice)}</td>
-                  <td className="px-3 py-2.5 font-mono text-text-primary font-medium">{h.currentValue > 0 ? fmt(h.currentValue) : '—'}</td>
-                  <td className="px-3 py-2.5">
-                    {h.shares > 0 ? (
-                      <div>
-                        <div className={`font-mono text-xs ${h.gainLoss >= 0 ? 'text-accent' : 'text-accent-red'}`}>
-                          {h.gainLoss >= 0 ? '+' : ''}{fmtCompact(h.gainLoss)}
-                        </div>
-                        <div className={`text-[10px] font-mono ${h.gainLossPct >= 0 ? 'text-accent' : 'text-accent-red'}`}>
-                          {fmtPct(h.gainLossPct)}
-                        </div>
-                      </div>
-                    ) : <span className="text-text-dim">—</span>}
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#909090' }}>{fmtPrice(h.currentPrice)}</td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtCompact(h.currentValue) : '—'}</td>
+                  <td style={{ padding: '9px 12px' }}>
+                    {h.shares > 0 ? <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtCompact(h.gainLoss)}</div> : <span style={{ color: '#303030' }}>—</span>}
                   </td>
-                  <td className="px-3 py-2.5">
-                    <span className={`font-mono font-semibold text-xs px-1.5 py-0.5 rounded ${h.dailyChangePct >= 0 ? 'bg-accent/10 text-accent' : 'bg-accent-red/10 text-accent-red'}`}>
+                  <td style={{ padding: '9px 12px' }}>
+                    <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
+                      color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
+                      background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
                       {fmtPct(h.dailyChangePct)}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td style={{ padding: '9px 12px', textAlign: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); deleteTicker(h.ticker) }}
-                      className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-accent-red transition-all">
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#303030', padding: 0 }}
+                      className="hover:text-accent-red">
                       <X size={12} />
                     </button>
                   </td>
@@ -448,69 +472,65 @@ function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
               ))}
             </tbody>
           </table>
-        </div>
-        <div className="px-5 py-2 border-t border-border text-[10px] text-text-dim font-mono">
-          Click any row to edit · Click column headers to sort
-        </div>
-      </div>
 
-      {/* Edit modal */}
-      {editPosition && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
-          onClick={() => setEditPosition(null)}>
-          <div className="bg-surface-2 border border-border rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-text-primary font-semibold text-lg font-mono">{editPosition.ticker}</h3>
-                <p className="text-text-tertiary text-xs mt-0.5">{editPosition.bucket}</p>
+          {/* War chest + dip triggers */}
+          <div style={{ padding: '12px 16px', borderTop: '0.5px solid #242424', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <div style={labelStyle}>War chest</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>$</span>
+                <input value={warChestInput} onChange={e => setWarChestInput(e.target.value)} onBlur={saveWarChest} style={{ ...inputStyle, width: '120px' }} />
               </div>
-              <button onClick={() => setEditPosition(null)} className="text-text-tertiary hover:text-text-primary text-xl leading-none">×</button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Shares', key: 'shares', placeholder: '0' },
-                { label: 'Cost basis (per share)', key: 'cost_basis', placeholder: '0.00' },
-                { label: 'Dip trigger ($)', key: 'dip_trigger', placeholder: 'optional' },
-                { label: 'Target allocation (%)', key: 'target_allocation', placeholder: 'optional' },
-              ].map(({ label, key, placeholder }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <label className="widget-label">{label}</label>
-                  <input type="number"
-                    value={(editForm as any)[key]}
-                    onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))}
-                    placeholder={placeholder}
-                    className="bg-surface-3 border border-border rounded-lg px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-border-strong" />
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="widget-label">Bucket</label>
-              <select value={editForm.bucket} onChange={e => setEditForm(p => ({ ...p, bucket: e.target.value }))}
-                className="bg-surface-3 border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none">
-                {BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-            <div className="bg-surface-3 rounded-lg p-3 text-xs font-mono text-text-secondary border border-border">
-              {editForm.shares && editForm.cost_basis
-                ? `Value: ${fmt(parseFloat(editForm.shares) * editPosition.currentPrice)} · Cost: ${fmt(parseFloat(editForm.shares) * parseFloat(editForm.cost_basis))}`
-                : `Current: ${fmtPrice(editPosition.currentPrice)}`}
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={savePosition} className="btn-primary flex-1">Save position</button>
-              <button onClick={() => setEditPosition(null)} className="btn-ghost">Cancel</button>
+            <div>
+              <div style={labelStyle}>Dip triggers</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {data.holdings?.filter((h: any) => h.dipTrigger).map((h: any) => (
+                  <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', padding: '1px 6px', borderRadius: '4px',
+                      color: h.atDip ? '#a32d2d' : '#1a7a3c', background: h.atDip ? '#fcebeb' : '#eaf3de' }}>
+                      {fmtPrice(h.currentPrice)} {h.atDip ? '🔴 BUY' : '✓'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
-    </>
+
+      {/* Edit modal */}
+      {editPosition && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}
+          onClick={() => setEditPosition(null)}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #242424', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '16px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '16px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0' }}>{editPosition.ticker}</span>
+              <button onClick={() => setEditPosition(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {[['Shares', 'shares'], ['Cost basis', 'cost_basis'], ['Dip trigger ($)', 'dip_trigger'], ['Target alloc (%)', 'target_allocation']].map(([label, key]) => (
+                <div key={key}><div style={labelStyle}>{label}</div>
+                  <input type="number" value={(editForm as any)[key]} onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))} style={inputStyle} /></div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={savePosition} style={{ flex: 1, fontSize: '13px', padding: '8px', borderRadius: '8px', background: '#f0f0f0', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Save</button>
+              <button onClick={() => setEditPosition(null)} style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: '#505050', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
-// ─── Manual Accounts ──────────────────────────────────────────
-function ManualAccounts({ onTotalChange }: { onTotalChange: (total: number) => void }) {
+// ─── Manual Accounts (collapsible) ───────────────────────────
+function ManualAccountsSection({ onTotalChange }: { onTotalChange: (n: number) => void }) {
   const [accounts, setAccounts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [editAccount, setEditAccount] = useState<any>(null)
   const [form, setForm] = useState({ name: '', account_type: 'Real Estate', balance: '' })
@@ -521,107 +541,134 @@ function ManualAccounts({ onTotalChange }: { onTotalChange: (total: number) => v
       const data = res.data ?? []
       setAccounts(data)
       onTotalChange(data.reduce((s: number, a: any) => s + a.balance, 0))
-    }).finally(() => setLoading(false))
+    })
   }, [])
 
-  function updateTotal(updated: any[]) {
-    setAccounts(updated)
-    onTotalChange(updated.reduce((s, a) => s + a.balance, 0))
-  }
+  function updateTotal(updated: any[]) { setAccounts(updated); onTotalChange(updated.reduce((s, a) => s + a.balance, 0)) }
 
   async function save() {
     setSaving(true)
     if (editAccount) {
-      const res = await fetch('/api/finance/manual', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editAccount.id, ...form, balance: parseFloat(form.balance) }),
-      }).then(r => r.json())
+      const res = await fetch('/api/finance/manual', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editAccount.id, ...form, balance: parseFloat(form.balance) }) }).then(r => r.json())
       if (res.data) updateTotal(accounts.map(a => a.id === res.data.id ? res.data : a))
       setEditAccount(null)
     } else {
-      const res = await fetch('/api/finance/manual', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, balance: parseFloat(form.balance) }),
-      }).then(r => r.json())
+      const res = await fetch('/api/finance/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, balance: parseFloat(form.balance) }) }).then(r => r.json())
       if (res.data) updateTotal([...accounts, res.data])
       setShowAdd(false)
     }
-    setForm({ name: '', account_type: 'Real Estate', balance: '' })
-    setSaving(false)
-  }
-
-  async function deleteAccount(id: string) {
-    await fetch(`/api/finance/manual?id=${id}`, { method: 'DELETE' })
-    updateTotal(accounts.filter(a => a.id !== id))
+    setForm({ name: '', account_type: 'Real Estate', balance: '' }); setSaving(false)
   }
 
   const total = accounts.reduce((s, a) => s + a.balance, 0)
+  const inputStyle = { background: '#1e1e1e', border: '0.5px solid #363636', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%' }
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #f5a623' }}>
-      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="widget-label">Investment accounts</span>
-          {total > 0 && <span className="text-sm font-mono text-accent-amber">{fmt(total)}</span>}
+    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Investment accounts</span>
+          {total > 0 && <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f5a623' }}>{fmtCompact(total)}</span>}
         </div>
-        <button onClick={() => { setShowAdd(true); setEditAccount(null); setForm({ name: '', account_type: 'Real Estate', balance: '' }) }}
-          className="btn-ghost"><Plus size={11} /> add</button>
+        {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
       </div>
 
-      {loading && <div className="px-5 py-4 text-xs text-text-tertiary animate-pulse">Loading...</div>}
-
-      {!loading && accounts.length === 0 && !showAdd && (
-        <div className="px-5 py-8 text-xs text-text-tertiary text-center">No investment accounts yet</div>
-      )}
-
-      {accounts.map(account => (
-        <div key={account.id}
-          className="flex items-center justify-between px-5 py-3 border-b border-border last:border-0 hover:bg-surface-3 transition-colors group">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent-amber flex-shrink-0" />
-            <div>
-              <div className="text-sm text-text-primary">{account.name}</div>
-              <div className="text-[10px] text-text-tertiary mt-0.5 font-mono">{account.account_type}</div>
+      {expanded && (
+        <div style={{ borderTop: '0.5px solid #242424' }}>
+          {accounts.map((a, i) => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: i < accounts.length - 1 ? '0.5px solid #1e1e1e' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f5a623' }} />
+                <div>
+                  <div style={{ fontSize: '13px', color: '#f0f0f0' }}>{a.name}</div>
+                  <div style={{ fontSize: '11px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{a.account_type}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '13px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f5a623' }}>{fmtCompact(a.balance)}</span>
+                <button onClick={() => { setEditAccount(a); setShowAdd(false); setForm({ name: a.name, account_type: a.account_type, balance: a.balance.toString() }) }}
+                  style={{ fontSize: '11px', color: '#505050', background: 'none', border: 'none', cursor: 'pointer' }}>edit</button>
+                <button onClick={async () => { await fetch(`/api/finance/manual?id=${a.id}`, { method: 'DELETE' }); updateTotal(accounts.filter(x => x.id !== a.id)) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#303030', padding: 0 }}>
+                  <X size={12} />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-sm font-mono text-accent-amber">{fmt(account.balance)}</div>
-            <button onClick={() => { setEditAccount(account); setShowAdd(false); setForm({ name: account.name, account_type: account.account_type, balance: account.balance.toString() }) }}
-              className="opacity-0 group-hover:opacity-100 btn-ghost text-[10px]">edit</button>
-            <button onClick={() => deleteAccount(account.id)}
-              className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-accent-red transition-all"><X size={12} /></button>
+          ))}
+
+          <div style={{ padding: '10px 16px', borderTop: accounts.length > 0 ? '0.5px solid #242424' : 'none' }}>
+            {!(showAdd || editAccount) ? (
+              <button onClick={() => { setShowAdd(true); setEditAccount(null); setForm({ name: '', account_type: 'Real Estate', balance: '' }) }}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#505050', background: 'none', border: '0.5px solid #363636', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>
+                <Plus size={10} /> Add account
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', marginBottom: '4px' }}>Name</div>
+                    <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Fundrise" style={inputStyle} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', marginBottom: '4px' }}>Type</div>
+                    <select value={form.account_type} onChange={e => setForm(p => ({ ...p, account_type: e.target.value }))} style={inputStyle}>
+                      {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', marginBottom: '4px' }}>Amount ($)</div>
+                    <input type="number" value={form.balance} onChange={e => setForm(p => ({ ...p, balance: e.target.value }))} placeholder="0" style={inputStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={save} disabled={saving || !form.name || !form.balance} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                    {saving ? 'Saving...' : editAccount ? 'Update' : 'Add'}
+                  </button>
+                  <button onClick={() => { setShowAdd(false); setEditAccount(null) }} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#505050', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      ))}
+      )}
+    </div>
+  )
+}
 
-      {(showAdd || editAccount) && (
-        <div className="px-5 py-4 border-t border-border bg-surface-3 flex flex-col gap-3">
-          <span className="widget-label">{editAccount ? 'Edit account' : 'New account'}</span>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="widget-label">Name</label>
-              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="e.g. Fundrise" className="bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none" />
+// ─── Bank Accounts ────────────────────────────────────────────
+function BankAccounts({ finance, isConnected, onConnect, linking }: { finance: any; isConnected: boolean; onConnect: () => void; linking: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace' }}>Bank accounts</span>
+          {finance?.total_cash > 0 && <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#3ddc84' }}>{fmtCompact(finance.total_cash)}</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={e => { e.stopPropagation(); onConnect() }} disabled={linking}
+            style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', border: '0.5px solid #363636', background: 'transparent', color: '#505050', cursor: 'pointer' }}>
+            {linking ? 'Connecting...' : isConnected ? '+ add' : 'Connect Plaid'}
+          </button>
+          {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
+        </div>
+      </div>
+
+      {expanded && finance?.accounts && (
+        <div style={{ borderTop: '0.5px solid #242424' }}>
+          {finance.accounts.map((a: any, i: number) => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: i < finance.accounts.length - 1 ? '0.5px solid #1e1e1e' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: TYPE_COLOR[a.type] ?? '#888', boxShadow: `0 0 5px ${(TYPE_COLOR[a.type] ?? '#888')}60` }} />
+                <div>
+                  <div style={{ fontSize: '13px', color: '#f0f0f0' }}>{a.name}</div>
+                  <div style={{ fontSize: '11px', color: '#505050', fontFamily: 'DM Mono, monospace' }}>{TYPE_LABEL[a.type] ?? a.type} · ••{a.mask}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: a.type === 'credit' ? '#ff6b6b' : '#f0f0f0' }}>{fmt(a.balance)}</div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="widget-label">Type</label>
-              <select value={form.account_type} onChange={e => setForm(p => ({ ...p, account_type: e.target.value }))}
-                className="bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none">
-                {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="widget-label">Amount ($)</label>
-              <input type="number" value={form.balance} onChange={e => setForm(p => ({ ...p, balance: e.target.value }))}
-                placeholder="0" className="bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm font-mono text-text-primary focus:outline-none" />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={save} disabled={saving || !form.name || !form.balance} className="btn-primary text-xs py-1.5">
-              {saving ? 'Saving...' : editAccount ? 'Update' : 'Add account'}
-            </button>
-            <button onClick={() => { setShowAdd(false); setEditAccount(null) }} className="btn-ghost">Cancel</button>
-          </div>
+          ))}
         </div>
       )}
     </div>
@@ -635,27 +682,39 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
   const [financeData, setFinanceData] = useState<any>(null)
   const [portfolioData, setPortfolioData] = useState<any>(null)
   const [manualTotal, setManualTotal] = useState(0)
+  const [manualAccounts, setManualAccounts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [linking, setLinking] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [period, setPeriod] = useState('6m')
 
   useEffect(() => {
-    if (isConnected) {
-      fetch('/api/finance').then(r => r.json()).then(res => {
-        if (res.data) setFinanceData(res.data)
-      }).finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+    Promise.all([
+      isConnected ? fetch('/api/finance').then(r => r.json()) : Promise.resolve(null),
+      fetch('/api/stocks').then(r => r.json()),
+      fetch('/api/finance/manual').then(r => r.json()),
+    ]).then(([fin, stocks, manual]) => {
+      if (fin?.data) setFinanceData(fin.data)
+      if (stocks?.holdings) setPortfolioData(stocks)
+      const accts = manual?.data ?? []
+      setManualAccounts(accts)
+      setManualTotal(accts.reduce((s: number, a: any) => s + a.balance, 0))
+    }).finally(() => setLoading(false))
   }, [isConnected])
 
+  async function refreshStocks() {
+    setRefreshing(true)
+    const res = await fetch('/api/stocks?refresh=true').then(r => r.json())
+    setPortfolioData(res)
+    setRefreshing(false)
+  }
+
   async function openPlaidLink() {
-    setLinking(true)
-    setError(null)
+    setLinking(true); setError(null)
     try {
       const tokenRes = await fetch('/api/finance/link-token', { method: 'POST' }).then(r => r.json())
       if (tokenRes.error) throw new Error(tokenRes.error)
-
       await new Promise<void>((resolve, reject) => {
         if ((window as any).Plaid) { resolve(); return }
         const script = document.createElement('script')
@@ -664,14 +723,10 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
         script.onerror = () => reject(new Error('Failed to load Plaid'))
         document.head.appendChild(script)
       })
-
       const handler = (window as any).Plaid.create({
         token: tokenRes.link_token,
         onSuccess: async (public_token: string) => {
-          const res = await fetch('/api/finance', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ public_token }),
-          }).then(r => r.json())
+          const res = await fetch('/api/finance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ public_token }) }).then(r => r.json())
           if (res.error) throw new Error(res.error)
           const fresh = await fetch('/api/finance').then(r => r.json())
           if (fresh.data) setFinanceData(fresh.data)
@@ -680,185 +735,55 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
         onExit: () => setLinking(false),
       })
       handler.open()
-    } catch (err: any) {
-      setError(err.message)
-      setLinking(false)
-    }
+    } catch (err: any) { setError(err.message); setLinking(false) }
   }
 
-  const netWorth = financeData
-    ? financeData.net_worth + (portfolioData?.totalValue ?? 0) + manualTotal
-    : null
-
-  const chartData = [...snapshots].slice(0, 30).reverse().map(s => ({
-    date: new Date(s.snapshot_date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
-    'Net Worth': Math.round(s.net_worth),
-    'Cash': Math.round(s.total_cash),
-    'Invested': Math.round(s.total_investments),
-  }))
+  const netWorth = (financeData ? financeData.net_worth : 0) + (portfolioData?.totalValue ?? 0) + manualTotal
+  const holdings = portfolioData?.holdings ?? []
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl pb-10 animate-in">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '1400px', paddingBottom: '32px' }}>
 
-      {/* ── Hero KPI Section ── */}
-      <div className="rounded-2xl p-6" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #3ddc84', boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 40px rgba(61,220,132,0.03)' }}>
-        <div className="flex items-start justify-between gap-6">
-          {/* Net worth hero */}
-          <div className="flex flex-col gap-1">
-            <HeroKPI
-              value={netWorth != null ? fmtCompact(netWorth) : '—'}
-              label="Net Worth"
-            />
-            {financeData && (
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-[10px] text-text-dim font-mono">
-                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Mini KPIs */}
-          <div className="grid grid-cols-4 gap-3 flex-1 max-w-2xl">
-            <MiniKPI
-              value={financeData ? fmtCompact(financeData.total_investments) : '—'}
-              label="Invested"
-              color="#4d9fff"
-            />
-            <MiniKPI
-              value={financeData ? fmtCompact(financeData.total_cash) : '—'}
-              label="Cash"
-              color="#3ddc84"
-            />
-            <MiniKPI
-              value={financeData ? fmtCompact(financeData.total_credit_balance) : '—'}
-              label="Credit"
-              color="#ff6b6b"
-            />
-            <MiniKPI
-              value={portfolioData ? fmtCompact(portfolioData.totalValue) : '—'}
-              label="Portfolio"
-              color="#4d9fff"
-            />
-          </div>
-
-          {/* Connect button */}
-          <button onClick={openPlaidLink} disabled={linking}
-            className="btn-connect flex-shrink-0 text-xs">
-            {linking ? 'Connecting...' : isConnected ? '+ add account' : 'Connect Plaid'}
-          </button>
-        </div>
-
-        {/* Inline sparkline */}
-        {chartData.length > 1 && (
-          <div className="mt-5 pt-4 border-t border-border">
-            <ResponsiveContainer width="100%" height={80}>
-              <AreaChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 10 }}>
-                <defs>
-                  <linearGradient id="netWorthGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3ddc84" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#3ddc84" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#505050' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: '#505050' }} tickLine={false} axisLine={false}
-                  tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="Net Worth" stroke="#3ddc84" strokeWidth={1.5}
-                  fill="url(#netWorthGrad)" dot={false} connectNulls />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {error && <div className="mt-3 text-xs text-accent-red font-mono">{error}</div>}
-      </div>
-
-      {/* ── Stock Portfolio ── */}
-      <div className="grid grid-cols-3 gap-4">
-        <StockPortfolio onDataLoad={setPortfolioData} />
-      </div>
-
-      {/* ── Bank Accounts ── */}
-      <div className="bg-surface-2 border border-border rounded-xl overflow-hidden border-l-[2px] border-l-accent">
-        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-          <span className="widget-label">Bank accounts</span>
-          <button onClick={openPlaidLink} disabled={linking} className="btn-ghost text-[10px]">
-            {linking ? 'Connecting...' : isConnected ? '+ add account' : 'Connect Plaid'}
-          </button>
-        </div>
-
-        {!isConnected && !financeData ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <div className="text-text-secondary text-sm">Connect your bank accounts</div>
-            {error && <div className="text-accent-red text-xs font-mono">{error}</div>}
-            <button onClick={openPlaidLink} disabled={linking} className="btn-primary">
-              {linking ? 'Connecting...' : 'Connect with Plaid'}
-            </button>
-          </div>
-        ) : loading ? (
-          <div className="px-5 py-6 text-xs text-text-tertiary animate-pulse">Loading accounts...</div>
-        ) : financeData?.accounts ? (
-          financeData.accounts.map((account: any, i: number) => (
-            <div key={account.id}
-              className={`flex items-center justify-between px-5 py-3.5 border-b border-border last:border-0 hover:bg-surface-3 transition-colors ${i % 2 === 0 ? '' : 'bg-[#111111]/30'}`}>
-              <div className="flex items-center gap-3.5">
-                <div className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: TYPE_COLOR[account.type] ?? '#888', boxShadow: `0 0 6px ${TYPE_COLOR[account.type] ?? '#888'}40` }} />
-                <div>
-                  <div className="text-sm text-text-primary">{account.name}</div>
-                  <div className="text-[10px] text-text-tertiary font-mono mt-0.5">
-                    {TYPE_LABEL[account.type] ?? account.type} · ••{account.mask}
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-mono font-medium" style={{ color: TYPE_COLOR[account.type] ?? '#f0f0f0' }}>
-                  {fmt(account.balance)}
-                </div>
-                {account.available_balance !== null && account.available_balance !== account.balance && (
-                  <div className="text-[10px] text-text-tertiary font-mono mt-0.5">
-                    {fmt(account.available_balance)} avail.
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        ) : null}
-      </div>
-
-      {/* ── Investment Accounts ── */}
-      <ManualAccounts onTotalChange={setManualTotal} />
-
-      {/* ── Extended Net Worth Chart ── */}
-      {chartData.length > 1 && (
-        <div className="bg-surface-2 border border-border rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <span className="widget-label">Net worth trend</span>
-            <span className="text-[10px] text-text-tertiary font-mono">30 days</span>
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e1e1e" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#505050' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#505050' }} tickLine={false} axisLine={false}
-                tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="Net Worth" stroke="#3ddc84" strokeWidth={2} dot={false} connectNulls />
-              <Line type="monotone" dataKey="Cash" stroke="#4d9fff" strokeWidth={1.5} dot={false} connectNulls />
-              <Line type="monotone" dataKey="Invested" stroke="#9d7cf4" strokeWidth={1.5} dot={false} connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-5 mt-3">
-            {[['Net Worth', '#3ddc84'], ['Cash', '#4d9fff'], ['Invested', '#9d7cf4']].map(([label, color]) => (
-              <div key={label} className="flex items-center gap-1.5">
-                <div className="w-3 h-0.5 rounded" style={{ backgroundColor: color }} />
-                <span className="text-[10px] text-text-tertiary font-mono">{label}</span>
-              </div>
-            ))}
+      {/* ── KPI Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '10px' }}>
+        {/* Net worth hero */}
+        <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #3ddc84', borderRadius: '12px', padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>Net worth</div>
+          <div style={{ fontSize: '32px', fontWeight: 300, fontFamily: 'DM Mono, monospace', color: '#f0f0f0', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+            {loading ? '—' : fmtCompact(netWorth)}
           </div>
         </div>
-      )}
+        {/* Mini KPIs */}
+        {[
+          { label: 'Invested', value: financeData ? fmtCompact(financeData.total_investments + (portfolioData?.totalValue ?? 0)) : '—', color: '#4d9fff' },
+          { label: 'Cash', value: financeData ? fmtCompact(financeData.total_cash) : '—', color: '#3ddc84' },
+          { label: 'Credit', value: financeData ? fmtCompact(financeData.total_credit_balance) : '—', color: '#ff6b6b' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#161616', border: '1px solid #242424', borderRadius: '12px', padding: '16px 20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>{k.label}</div>
+            <div style={{ fontSize: '20px', fontWeight: 300, fontFamily: 'DM Mono, monospace', color: k.color, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Main 2-col ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <SpendingChart period={period} onPeriodChange={setPeriod} />
+        <AccountGroups finance={financeData} manualAccounts={manualAccounts} portfolio={portfolioData} />
+      </div>
+
+      {/* ── Bottom 2-col ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <SpendingCategories />
+        <EquityPerformance holdings={holdings} refreshing={refreshing} onRefresh={refreshStocks} />
+      </div>
+
+      {/* ── Collapsible detail sections ── */}
+      <StockPortfolioDetail data={portfolioData} onDataLoad={setPortfolioData} refreshing={refreshing} onRefresh={refreshStocks} />
+      <ManualAccountsSection onTotalChange={t => { setManualTotal(t) }} />
+      <BankAccounts finance={financeData} isConnected={isConnected} onConnect={openPlaidLink} linking={linking} />
+
+      {error && <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.2)', fontSize: '13px', color: '#ff6b6b', fontFamily: 'DM Mono, monospace' }}>{error}</div>}
     </div>
   )
 }
