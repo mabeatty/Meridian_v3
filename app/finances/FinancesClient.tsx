@@ -307,17 +307,31 @@ function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }:
   async function addPosition() {
     if (!addForm.ticker.trim()) return
     setAdding(true)
-    await fetch('/api/stocks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'position',
-        ticker: addForm.ticker.toUpperCase().trim(),
-        shares: parseFloat(addForm.shares) || 0,
-        cost_basis: parseFloat(addForm.cost_basis) || 0,
-        bucket: addForm.bucket,
-      }),
-    })
+    try {
+      const res = await fetch('/api/stocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'position',
+          ticker: addForm.ticker.toUpperCase().trim(),
+          shares: parseFloat(addForm.shares) || 0,
+          cost_basis: parseFloat(addForm.cost_basis) || 0,
+          bucket: addForm.bucket,
+        }),
+      })
+      const json = await res.json()
+      console.log('addPosition response:', res.status, json)
+      if (!res.ok) {
+        alert('Error saving position: ' + (json.error ?? res.status))
+        setAdding(false)
+        return
+      }
+    } catch (err) {
+      console.error('addPosition error:', err)
+      alert('Network error: ' + err)
+      setAdding(false)
+      return
+    }
     setAddForm({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core' })
     setShowAdd(false)
     setAdding(false)
