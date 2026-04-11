@@ -81,7 +81,7 @@ export function TasksWidget() {
     : undefined
 
   return (
-    <WidgetCard label="Tasks" action={action}>
+    <WidgetCard label="Tasks" action={action} accent="amber">
       {loading && <WidgetSkeleton rows={4} />}
       {!loading && (
         <div className="flex flex-col gap-2 h-full">

@@ -22,7 +22,7 @@ export function CalendarWidget() {
   }, [])
 
   return (
-    <WidgetCard label="Calendar">
+    <WidgetCard label="Calendar" accent="blue">
       {loading && <WidgetSkeleton rows={3} />}
       {!loading && notConnected && <ConnectPrompt service="Google Calendar" href="/api/auth/google" label="events" />}
       {!loading && !notConnected && data && (

@@ -34,7 +34,7 @@ export function FinanceWidget() {
 
   return (
     <WidgetCard
-      label="Financial Snapshot"
+      label="Financial Snapshot" accent="green"
       action={
         data && (
           <button

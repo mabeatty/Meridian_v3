@@ -18,7 +18,7 @@ export function GoalsWidget() {
   }, [])
 
   return (
-    <WidgetCard label="Goals" action={<a href="/goals" className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors">manage →</a>}>
+    <WidgetCard label="Goals" accent="purple" action={<a href="/goals" className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors">manage →</a>}>
       {loading && <WidgetSkeleton rows={3} />}
       {!loading && goals.length === 0 && (
         <div className="flex flex-col gap-1">

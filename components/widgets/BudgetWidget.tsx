@@ -24,7 +24,7 @@ export function BudgetWidget() {
 
   return (
     <WidgetCard
-      label="Budget"
+      label="Budget" accent="amber"
       action={<a href="/budget" className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors">view all →</a>}
     >
       {loading && <WidgetSkeleton rows={4} />}

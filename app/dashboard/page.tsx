@@ -20,24 +20,34 @@ export default async function DashboardPage() {
   const weather = weatherRes.data?.data as any ?? null
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-surface">
       <Header
         displayName={profileRes.data?.display_name}
         weather={weather ? { temp: weather.temp, condition: weather.condition, location: weather.location } : null}
       />
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <CalendarWidget />
-          <TasksWidget />
-          <NewsWidget />
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <FinanceWidget />
-          <GoalsWidget />
-          <HealthWidget />
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <BudgetWidget />
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-5 flex flex-col gap-4 max-w-[1600px]">
+
+          {/* ── Primary row — Calendar, Tasks, News ── */}
+          <div className="grid grid-cols-3 gap-4 animate-in">
+            <CalendarWidget />
+            <TasksWidget />
+            <NewsWidget />
+          </div>
+
+          {/* ── Secondary row — Finance, Health, Goals ── */}
+          <div className="grid grid-cols-3 gap-4 animate-in-delay-1">
+            <FinanceWidget />
+            <HealthWidget />
+            <GoalsWidget />
+          </div>
+
+          {/* ── Tertiary row — Budget ── */}
+          <div className="grid grid-cols-3 gap-4 animate-in-delay-2">
+            <BudgetWidget />
+          </div>
+
         </div>
       </div>
     </div>

@@ -53,7 +53,7 @@ export function HealthWidget() {
 
   return (
     <WidgetCard
-      label="Health"
+      label="Health" accent="red"
       action={
         <div className="flex items-center gap-2">
           <button onClick={refresh} disabled={refreshing} className="text-text-tertiary hover:text-text-secondary transition-colors">

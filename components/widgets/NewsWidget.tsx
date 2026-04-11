@@ -49,7 +49,7 @@ export function NewsWidget() {
   )
 
   return (
-    <WidgetCard label="News" action={action}>
+    <WidgetCard label="News" action={action} accent="purple">
       {loading && <WidgetSkeleton rows={5} />}
       {!loading && (
         <div className="flex flex-col gap-2 h-full">
