@@ -182,7 +182,7 @@ export default function SupplementsPage() {
               </div>
             </SuppCard>
 
-            <div style={{ background: '#161616', borderLeft: '3px solid #1D9E75', borderRadius: '0 10px 10px 0', border: '1px solid #242424', borderLeft: '3px solid #1D9E75', padding: '14px' }}>
+            <div style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #1D9E75', borderRadius: '0 10px 10px 0', padding: '14px' }}>
               <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#505050', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>
                 What this stack is doing
               </div>
