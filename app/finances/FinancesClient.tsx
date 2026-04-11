@@ -701,8 +701,7 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
     <div className="flex flex-col gap-6 max-w-7xl pb-10 animate-in">
 
       {/* ── Hero KPI Section ── */}
-      <div className="rounded-2xl p-6" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #3ddc84', boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 40px rgba(61,220,132,0.03)' }}
-        style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 40px rgba(61,220,132,0.03)' }}>
+      <div className="rounded-2xl p-6" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #3ddc84', boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 40px rgba(61,220,132,0.03)' }}>
         <div className="flex items-start justify-between gap-6">
           {/* Net worth hero */}
           <div className="flex flex-col gap-1">
