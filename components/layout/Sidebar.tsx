@@ -7,7 +7,6 @@ import {
   LayoutDashboard, Calendar, CheckSquare, TrendingUp,
   Heart, BookOpen, BarChart2, Target, Apple, Pill, Settings, PiggyBank
 } from 'lucide-react'
-import clsx from 'clsx'
 
 const NAV = [
   { label: 'Dashboard',   href: '/dashboard',   icon: LayoutDashboard },
@@ -35,46 +34,101 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
   }
 
   return (
-    <aside className="w-[196px] min-w-[196px] h-screen flex flex-col bg-surface-1 border-r border-border">
+    <aside style={{
+      width: '196px',
+      minWidth: '196px',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#111111',
+      borderRight: '1px solid #242424',
+    }}>
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-border">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-text-primary font-semibold tracking-tight" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            Meridian
-          </h1>
-          <span className="text-[9px] text-text-tertiary font-mono tracking-widest uppercase">OS</span>
+      <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid #242424' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+          <span style={{
+            fontSize: '15px',
+            fontWeight: 600,
+            color: '#f0f0f0',
+            letterSpacing: '-0.01em',
+            fontFamily: "'DM Sans', sans-serif",
+          }}>Meridian</span>
+          <span style={{
+            fontSize: '9px',
+            color: '#505050',
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+          }}>OS</span>
         </div>
-        <p className="text-text-tertiary text-[11px] mt-0.5 font-mono">
+        <p style={{
+          fontSize: '11px',
+          color: '#505050',
+          marginTop: '3px',
+          fontFamily: "'DM Mono', monospace",
+        }}>
           {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </p>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2.5 py-3 overflow-y-auto flex flex-col gap-0.5">
+      <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {NAV.map(({ label, href, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link key={href} href={href}
-              className={clsx(
-                'nav-item',
-                active && 'active'
-              )}>
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '7px 10px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                color: active ? '#f0f0f0' : '#505050',
+                background: active ? '#1e1e1e' : 'transparent',
+                transition: 'all 0.15s ease',
+                textDecoration: 'none',
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+              onMouseEnter={e => {
+                if (!active) {
+                  (e.currentTarget as HTMLElement).style.color = '#909090'
+                  ;(e.currentTarget as HTMLElement).style.background = '#1a1a1a'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!active) {
+                  (e.currentTarget as HTMLElement).style.color = '#505050'
+                  ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                }
+              }}
+            >
               <Icon size={14} strokeWidth={active ? 2 : 1.5} />
-              <span className="text-[13px]">{label}</span>
+              <span>{label}</span>
             </Link>
           )
         })}
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-3.5 border-t border-border">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-text-tertiary truncate max-w-[130px] font-mono">{userEmail}</span>
-          <button onClick={signOut}
-            className="text-[11px] text-text-tertiary hover:text-text-primary transition-colors font-mono">
-            sign out
-          </button>
-        </div>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #242424', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '11px', color: '#505050', fontFamily: "'DM Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
+          {userEmail}
+        </span>
+        <button onClick={signOut} style={{
+          fontSize: '11px',
+          color: '#505050',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontFamily: "'DM Mono', monospace",
+          transition: 'color 0.15s',
+        }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#f0f0f0'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#505050'}
+        >
+          sign out
+        </button>
       </div>
     </aside>
   )

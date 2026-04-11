@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { Cloud, Sun, CloudRain, CloudSnow, Zap } from 'lucide-react'
 
 interface HeaderProps {
   displayName?: string | null
@@ -16,13 +15,14 @@ function getGreeting(h: number) {
   return 'Good night'
 }
 
-function WeatherIcon({ condition }: { condition: string }) {
+function weatherEmoji(condition: string) {
   const c = condition.toLowerCase()
-  if (c.includes('rain') || c.includes('drizzle')) return <CloudRain size={14} className="text-accent-blue opacity-70" />
-  if (c.includes('snow')) return <CloudSnow size={14} className="text-accent-blue opacity-70" />
-  if (c.includes('thunder') || c.includes('storm')) return <Zap size={14} className="text-accent-amber opacity-70" />
-  if (c.includes('cloud') || c.includes('overcast')) return <Cloud size={14} className="text-text-tertiary opacity-70" />
-  return <Sun size={14} className="text-accent-amber opacity-70" />
+  if (c.includes('rain') || c.includes('drizzle')) return '🌧'
+  if (c.includes('snow')) return '🌨'
+  if (c.includes('thunder') || c.includes('storm')) return '⛈'
+  if (c.includes('cloud') || c.includes('overcast') || c.includes('fog')) return '☁️'
+  if (c.includes('clear') || c.includes('sunny')) return '☀️'
+  return '🌤'
 }
 
 export function Header({ displayName, weather }: HeaderProps) {
@@ -35,36 +35,73 @@ export function Header({ displayName, weather }: HeaderProps) {
   }, [])
 
   return (
-    <header className="flex items-center justify-between px-7 py-4 border-b border-border bg-surface-1 flex-shrink-0">
-      {/* Left — greeting */}
-      <div className="flex flex-col">
-        <h2 className="text-[17px] font-medium text-text-primary tracking-tight leading-tight"
-          style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <header style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '14px 28px',
+      borderBottom: '1px solid #242424',
+      background: '#111111',
+      flexShrink: 0,
+    }}>
+      {/* Greeting */}
+      <div>
+        <h2 style={{
+          fontSize: '17px',
+          fontWeight: 500,
+          color: '#f0f0f0',
+          letterSpacing: '-0.01em',
+          lineHeight: 1.3,
+          fontFamily: "'DM Sans', sans-serif",
+          margin: 0,
+        }}>
           {time ? getGreeting(time.getHours()) : 'Hello'},{' '}
-          <span className="text-text-secondary">{displayName || 'Alex'}</span>
+          <span style={{ color: '#909090' }}>{displayName || 'Alex'}</span>
         </h2>
-        <p className="text-text-tertiary text-xs mt-0.5 font-mono">
+        <p style={{
+          fontSize: '12px',
+          color: '#505050',
+          marginTop: '2px',
+          fontFamily: "'DM Mono', monospace",
+        }}>
           {time ? format(time, 'EEEE, MMMM d') : ''}
         </p>
       </div>
 
-      {/* Right — clock + weather */}
-      <div className="flex items-center gap-6">
+      {/* Right — weather + clock */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
         {weather && (
-          <div className="flex items-center gap-2 text-right">
-            <WeatherIcon condition={weather.condition} />
-            <div>
-              <div className="text-sm font-mono text-text-primary leading-none">{Math.round(weather.temp)}°F</div>
-              <div className="text-[10px] text-text-tertiary mt-0.5 font-mono">{weather.condition}</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '13px', color: '#f0f0f0', fontFamily: "'DM Mono', monospace" }}>
+              {weatherEmoji(weather.condition)} {Math.round(weather.temp)}°F
+            </div>
+            <div style={{ fontSize: '10px', color: '#505050', marginTop: '2px', fontFamily: "'DM Mono', monospace" }}>
+              {weather.condition}
             </div>
           </div>
         )}
-        <div className="text-right pl-6 border-l border-border">
-          <div className="font-clock text-2xl font-light text-text-primary tabular-nums leading-none tracking-tight">
+        <div style={{
+          textAlign: 'right',
+          paddingLeft: '24px',
+          borderLeft: '1px solid #242424',
+        }}>
+          <div style={{
+            fontFamily: "'DM Mono', monospace",
+            fontSize: '26px',
+            fontWeight: 300,
+            color: '#f0f0f0',
+            letterSpacing: '-0.03em',
+            lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
             {time ? format(time, 'h:mm') : '--:--'}
-            <span className="text-base text-text-tertiary ml-0.5">{time ? format(time, ':ss') : ''}</span>
+            <span style={{ fontSize: '16px', color: '#505050' }}>
+              {time ? format(time, ':ss') : ''}
+            </span>
             {' '}
-            <span className="text-sm text-text-tertiary">{time ? format(time, 'aa').toUpperCase() : ''}</span>
+            <span style={{ fontSize: '13px', color: '#505050' }}>
+              {time ? format(time, 'aa').toUpperCase() : ''}
+            </span>
           </div>
         </div>
       </div>

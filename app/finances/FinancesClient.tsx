@@ -39,7 +39,7 @@ const ACCOUNT_TYPES = ['Real Estate', 'Private Equity', 'Venture', 'Angel', 'Deb
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-surface-3 border border-border rounded-lg px-3 py-2 text-xs shadow-card">
+    <div className="bg-surface-3 border border-border rounded-lg px-3 py-2 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
       <div className="text-text-tertiary mb-1.5 font-mono">{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} className="flex items-center gap-2">
@@ -208,7 +208,7 @@ function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
   return (
     <>
       {/* Left — Portfolio summary */}
-      <div className="bg-surface-2 border border-border rounded-xl p-5 flex flex-col gap-4 border-l-[2px] border-l-accent-blue">
+      <div className="rounded-xl p-5 flex flex-col gap-4" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #4d9fff' }}>
         <div className="flex items-center justify-between">
           <span className="widget-label">Portfolio</span>
           <button onClick={refresh} disabled={refreshing}
@@ -269,7 +269,7 @@ function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
               </div>
               <div className="relative h-1.5 bg-surface-4 rounded-full overflow-hidden">
                 {a.target > 0 && (
-                  <div className="absolute top-0 bottom-0 w-px bg-surface-5 z-10"
+                  <div className="absolute top-0 bottom-0 w-px bg-surface-4 z-10"
                     style={{ left: `${Math.min(a.target, 99)}%` }} />
                 )}
                 <div className="h-full rounded-full transition-all duration-700"
@@ -399,7 +399,7 @@ function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
             <tbody>
               {sortedHoldings.map((h: any, i: number) => (
                 <tr key={h.ticker}
-                  className={`border-b border-border last:border-0 hover:bg-surface-3 transition-colors cursor-pointer group ${i % 2 === 0 ? '' : 'bg-surface-1/40'}`}
+                  className={`border-b border-border last:border-0 hover:bg-surface-3 transition-colors cursor-pointer group ${i % 2 === 0 ? '' : 'bg-[#111111]/40'}`}
                   onClick={() => {
                     setEditPosition(h)
                     setEditForm({
@@ -458,7 +458,7 @@ function StockPortfolio({ onDataLoad }: { onDataLoad: (d: any) => void }) {
       {editPosition && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
           onClick={() => setEditPosition(null)}>
-          <div className="bg-surface-2 border border-border rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-card-hover"
+          <div className="bg-surface-2 border border-border rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
@@ -558,7 +558,7 @@ function ManualAccounts({ onTotalChange }: { onTotalChange: (total: number) => v
   const total = accounts.reduce((s, a) => s + a.balance, 0)
 
   return (
-    <div className="bg-surface-2 border border-border rounded-xl overflow-hidden border-l-[2px] border-l-accent-amber">
+    <div className="rounded-xl overflow-hidden" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '2px solid #f5a623' }}>
       <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="widget-label">Investment accounts</span>
@@ -701,7 +701,7 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
     <div className="flex flex-col gap-6 max-w-7xl pb-10 animate-in">
 
       {/* ── Hero KPI Section ── */}
-      <div className="bg-surface-2 border border-border rounded-2xl p-6 border-l-[3px] border-l-accent"
+      <div className="rounded-2xl p-6" style={{ background: '#161616', border: '1px solid #242424', borderLeft: '3px solid #3ddc84', boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 40px rgba(61,220,132,0.03)' }}
         style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 40px rgba(61,220,132,0.03)' }}>
         <div className="flex items-start justify-between gap-6">
           {/* Net worth hero */}
@@ -802,7 +802,7 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
         ) : financeData?.accounts ? (
           financeData.accounts.map((account: any, i: number) => (
             <div key={account.id}
-              className={`flex items-center justify-between px-5 py-3.5 border-b border-border last:border-0 hover:bg-surface-3 transition-colors ${i % 2 === 0 ? '' : 'bg-surface-1/30'}`}>
+              className={`flex items-center justify-between px-5 py-3.5 border-b border-border last:border-0 hover:bg-surface-3 transition-colors ${i % 2 === 0 ? '' : 'bg-[#111111]/30'}`}>
               <div className="flex items-center gap-3.5">
                 <div className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: TYPE_COLOR[account.type] ?? '#888', boxShadow: `0 0 6px ${TYPE_COLOR[account.type] ?? '#888'}40` }} />

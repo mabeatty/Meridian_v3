@@ -10,29 +10,30 @@ interface WidgetCardProps {
   hero?: boolean
 }
 
-const ACCENT_STYLES = {
-  green:  'border-l-[2px] border-l-accent',
-  blue:   'border-l-[2px] border-l-accent-blue',
-  amber:  'border-l-[2px] border-l-accent-amber',
-  purple: 'border-l-[2px] border-l-accent-purple',
-  red:    'border-l-[2px] border-l-accent-red',
+const ACCENT_COLORS = {
+  green:  '#3ddc84',
+  blue:   '#4d9fff',
+  amber:  '#f5a623',
+  purple: '#9d7cf4',
+  red:    '#ff6b6b',
 }
 
 export function WidgetCard({ label, children, className, action, accent, hero }: WidgetCardProps) {
+  const accentColor = accent ? ACCENT_COLORS[accent] : undefined
+
   return (
-    <div className={clsx(
-      'flex flex-col gap-3 rounded-xl border border-border',
-      hero ? 'bg-surface-elevated p-5' : 'bg-surface-2 p-5',
-      accent && ACCENT_STYLES[accent],
-      'transition-all duration-200',
-      className
-    )}
+    <div
+      className={clsx('widget-card', className)}
       style={{
-        height: '420px',
-        boxShadow: hero
-          ? '0 2px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.4)'
-          : '0 1px 3px rgba(0,0,0,0.4)',
-      }}>
+        ...(accentColor ? {
+          borderLeft: `2px solid ${accentColor}`,
+        } : {}),
+        ...(hero ? {
+          background: '#1a1a1a',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+        } : {}),
+      }}
+    >
       <div className="flex items-center justify-between flex-shrink-0">
         <span className="widget-label">{label}</span>
         {action}
@@ -48,7 +49,7 @@ export function WidgetSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="flex flex-col gap-2.5 pt-1">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="skeleton h-4 rounded-md" style={{ width: `${65 + (i * 9) % 30}%` }} />
+        <div key={i} className="skeleton h-4 rounded" style={{ width: `${65 + (i * 9) % 30}%` }} />
       ))}
     </div>
   )
