@@ -40,11 +40,11 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      background: '#3f3f3f',
-      borderRight: '1px solid #242424',
+      background: '#3a3a3a',
+      borderRight: '1px solid #525252',
     }}>
       {/* Logo */}
-      <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid #242424' }}>
+      <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid #525252' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
           <span style={{
             fontSize: '15px',
@@ -93,7 +93,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
               onMouseEnter={e => {
                 if (!active) {
                   (e.currentTarget as HTMLElement).style.color = '#c0c0c0'
-                  ;(e.currentTarget as HTMLElement).style.background = '#444444'
+                  ;(e.currentTarget as HTMLElement).style.background = '#4a4a4a'
                 }
               }}
               onMouseLeave={e => {
@@ -111,7 +111,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid #242424', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #525252', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: '11px', color: '#c0c0c0', fontFamily: "'DM Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
           {userEmail}
         </span>

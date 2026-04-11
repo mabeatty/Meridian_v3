@@ -40,8 +40,8 @@ export function Header({ displayName, weather }: HeaderProps) {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '14px 28px',
-      borderBottom: '1px solid #242424',
-      background: '#3f3f3f',
+      borderBottom: '1px solid #525252',
+      background: '#3a3a3a',
       flexShrink: 0,
     }}>
       {/* Greeting */}
@@ -83,7 +83,7 @@ export function Header({ displayName, weather }: HeaderProps) {
         <div style={{
           textAlign: 'right',
           paddingLeft: '24px',
-          borderLeft: '1px solid #242424',
+          borderLeft: '1px solid #525252',
         }}>
           <div style={{
             fontFamily: "'DM Mono', monospace",
