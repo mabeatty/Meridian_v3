@@ -148,3 +148,5 @@ html, body { height: 100%; background: #0a0a0a; color: #f0f0f0; }
 .animate-in-delay-1 { animation: fadeInUp 0.35s ease-out 0.07s forwards; opacity: 0; }
 .animate-in-delay-2 { animation: fadeInUp 0.35s ease-out 0.14s forwards; opacity: 0; }
 .animate-in-delay-3 { animation: fadeInUp 0.35s ease-out 0.21s forwards; opacity: 0; }
+
+/* v2 */
