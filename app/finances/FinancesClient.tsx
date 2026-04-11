@@ -295,24 +295,94 @@ function SpendingCategories() {
 }
 
 // ─── Equity Performance ───────────────────────────────────────
-function EquityPerformance({ holdings, refreshing, onRefresh }: { holdings: any[]; refreshing: boolean; onRefresh: () => void }) {
+function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }: { holdings: any[]; refreshing: boolean; onRefresh: () => void; onPositionAdded: () => void }) {
   const dailyTotal = holdings.reduce((s, h) => s + (h.shares * h.dailyChange), 0)
+  const [showAdd, setShowAdd] = useState(false)
+  const [addForm, setAddForm] = useState({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core' })
+  const [adding, setAdding] = useState(false)
+
+  const BUCKETS = ['AI Core', 'Energy', 'Nuclear', 'Obscure', 'Other']
+  const inputStyle = { background: '#4e4e4e', border: '0.5px solid #626262', borderRadius: '6px', padding: '5px 8px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%', fontFamily: 'DM Mono, monospace' }
+
+  async function addPosition() {
+    if (!addForm.ticker.trim()) return
+    setAdding(true)
+    await fetch('/api/stocks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'position',
+        ticker: addForm.ticker.toUpperCase().trim(),
+        shares: parseFloat(addForm.shares) || 0,
+        cost_basis: parseFloat(addForm.cost_basis) || 0,
+        bucket: addForm.bucket,
+      }),
+    })
+    setAddForm({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core' })
+    setShowAdd(false)
+    setAdding(false)
+    onPositionAdded()
+  }
 
   return (
-    <div style={{ background: '#444444', border: '1px solid #242424', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ background: '#444444', border: '1px solid #525252', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Equity today</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '13px', fontFamily: 'DM Mono, monospace', color: dailyTotal >= 0 ? '#3ddc84' : '#ff6b6b', fontWeight: 500 }}>
             {dailyTotal >= 0 ? '+' : ''}{fmtCompact(dailyTotal)}
           </span>
+          <button onClick={() => setShowAdd(s => !s)}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#c0c0c0', background: '#4e4e4e', border: '0.5px solid #626262', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer' }}>
+            <Plus size={10} /> Add
+          </button>
           <button onClick={onRefresh} disabled={refreshing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0c0c0', padding: 0, display: 'flex' }}>
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {holdings.length === 0 && <div style={{ fontSize: '13px', color: '#c0c0c0' }}>No positions yet</div>}
+      {showAdd && (
+        <div style={{ background: '#4e4e4e', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: '#909090', marginBottom: '3px', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ticker</div>
+              <input value={addForm.ticker} onChange={e => setAddForm(p => ({ ...p, ticker: e.target.value.toUpperCase() }))}
+                onKeyDown={e => e.key === 'Enter' && addPosition()}
+                placeholder="NVDA" style={inputStyle} autoFocus />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: '#909090', marginBottom: '3px', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Shares</div>
+              <input type="number" value={addForm.shares} onChange={e => setAddForm(p => ({ ...p, shares: e.target.value }))}
+                placeholder="0" style={inputStyle} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: '#909090', marginBottom: '3px', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cost basis</div>
+              <input type="number" value={addForm.cost_basis} onChange={e => setAddForm(p => ({ ...p, cost_basis: e.target.value }))}
+                placeholder="0.00" style={inputStyle} />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: '#909090', marginBottom: '3px', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bucket</div>
+              <select value={addForm.bucket} onChange={e => setAddForm(p => ({ ...p, bucket: e.target.value }))}
+                style={{ ...inputStyle, cursor: 'pointer' }}>
+                {BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={addPosition} disabled={adding || !addForm.ticker.trim()}
+              style={{ fontSize: '12px', padding: '5px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#3a3a3a', border: 'none', cursor: 'pointer', fontWeight: 500, opacity: adding || !addForm.ticker.trim() ? 0.5 : 1 }}>
+              {adding ? 'Adding...' : 'Add ticker'}
+            </button>
+            <button onClick={() => setShowAdd(false)}
+              style={{ fontSize: '12px', padding: '5px 14px', borderRadius: '6px', background: 'transparent', color: '#c0c0c0', border: '0.5px solid #626262', cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {holdings.length === 0 && !showAdd && <div style={{ fontSize: '13px', color: '#c0c0c0' }}>No positions yet — click Add to get started</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
         {holdings.map((h: any, i: number) => (
@@ -775,7 +845,7 @@ export function FinancesClient({ snapshots, isConnected }: Props) {
       {/* ── Bottom 2-col ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         <SpendingCategories />
-        <EquityPerformance holdings={holdings} refreshing={refreshing} onRefresh={refreshStocks} />
+        <EquityPerformance holdings={holdings} refreshing={refreshing} onRefresh={refreshStocks} onPositionAdded={refreshStocks} />
       </div>
 
       {/* ── Collapsible detail sections ── */}
