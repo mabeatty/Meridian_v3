@@ -192,73 +192,48 @@ function TasksTab() {
 
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* List filter */}
         {allLists.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap">
-            {allLists.map(l => (
-              <button key={l} onClick={() => setFilters(f => ({ ...f, list: f.list === l ? '' : l }))}
-                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                  filters.list === l
-                    ? 'bg-accent-blue/10 border-accent-blue/30 text-accent-blue'
-                    : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
-                }`}>
-                {l}
-              </button>
-            ))}
-          </div>
+          <select value={filters.list} onChange={e => setFilters(f => ({ ...f, list: e.target.value }))}
+            className={`text-xs px-2.5 py-1.5 rounded-lg border bg-surface-2 transition-colors focus:outline-none cursor-pointer
+              ${filters.list ? 'border-accent-blue/40 text-text-primary' : 'border-border text-text-tertiary'}`}>
+            <option value="">All lists</option>
+            {allLists.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
         )}
 
-        {/* Divider */}
-        {allLists.length > 0 && <div className="w-px h-4 bg-border" />}
+        <select value={filters.priority} onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))}
+          className={`text-xs px-2.5 py-1.5 rounded-lg border bg-surface-2 transition-colors focus:outline-none cursor-pointer
+            ${filters.priority ? 'border-accent-amber/40 text-text-primary' : 'border-border text-text-tertiary'}`}>
+          <option value="">All priorities</option>
+          <option value="1">Urgent</option>
+          <option value="2">High</option>
+          <option value="3">Normal</option>
+          <option value="4">Low</option>
+        </select>
 
-        {/* Priority filter */}
-        {[{ v: '1', l: 'Urgent' }, { v: '2', l: 'High' }, { v: '3', l: 'Normal' }, { v: '4', l: 'Low' }].map(p => (
-          <button key={p.v} onClick={() => setFilters(f => ({ ...f, priority: f.priority === p.v ? '' : p.v }))}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-              filters.priority === p.v
-                ? 'bg-accent-amber/10 border-accent-amber/30 text-accent-amber'
-                : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
-            }`}>
-            {p.l}
-          </button>
-        ))}
+        <select value={filters.due} onChange={e => setFilters(f => ({ ...f, due: e.target.value }))}
+          className={`text-xs px-2.5 py-1.5 rounded-lg border bg-surface-2 transition-colors focus:outline-none cursor-pointer
+            ${filters.due ? 'border-accent-purple/40 text-text-primary' : 'border-border text-text-tertiary'}`}>
+          <option value="">All due dates</option>
+          <option value="overdue">Overdue</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+          <option value="none">No due date</option>
+        </select>
 
-        <div className="w-px h-4 bg-border" />
-
-        {/* Due filter */}
-        {[{ v: 'overdue', l: 'Overdue' }, { v: 'week', l: 'This week' }, { v: 'month', l: 'This month' }, { v: 'none', l: 'No due date' }].map(d => (
-          <button key={d.v} onClick={() => setFilters(f => ({ ...f, due: f.due === d.v ? '' : d.v }))}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-              filters.due === d.v
-                ? 'bg-accent-purple/10 border-accent-purple/30 text-accent-purple'
-                : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
-            }`}>
-            {d.l}
-          </button>
-        ))}
-
-        {/* Assignee filter */}
         {allAssignees.length > 0 && (
-          <>
-            <div className="w-px h-4 bg-border" />
-            {allAssignees.map(a => (
-              <button key={a} onClick={() => setFilters(f => ({ ...f, assignee: f.assignee === a ? '' : a }))}
-                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                  filters.assignee === a
-                    ? 'bg-accent/10 border-accent/30 text-accent'
-                    : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
-                }`}>
-                {a}
-              </button>
-            ))}
-          </>
+          <select value={filters.assignee} onChange={e => setFilters(f => ({ ...f, assignee: e.target.value }))}
+            className={`text-xs px-2.5 py-1.5 rounded-lg border bg-surface-2 transition-colors focus:outline-none cursor-pointer
+              ${filters.assignee ? 'border-accent/40 text-text-primary' : 'border-border text-text-tertiary'}`}>
+            <option value="">All assignees</option>
+            {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
         )}
 
-        {/* Clear filters */}
         {activeFilterCount > 0 && (
           <button onClick={() => setFilters({ list: '', priority: '', due: '', assignee: '' })}
-            className="text-[11px] px-2.5 py-1 rounded-full border border-border text-text-dim hover:text-text-secondary transition-colors ml-1">
-            Clear ({activeFilterCount})
+            className="text-xs text-text-dim hover:text-text-secondary transition-colors">
+            Clear filters
           </button>
         )}
       </div>
