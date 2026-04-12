@@ -71,6 +71,7 @@ export async function GET() {
       folder_name: t.folder?.name ?? '',
       url: t.url ?? null,
       tags: (t.tags ?? []).map((tg: any) => tg.name),
+      assignees: (t.assignees ?? []).map((a: any) => ({ id: String(a.id), name: a.username ?? a.email ?? 'Unknown' })),
     }))
 
     const overdueTd = await fetch(
@@ -94,6 +95,7 @@ export async function GET() {
         folder_name: t.folder?.name ?? '',
         url: t.url ?? null,
         tags: (t.tags ?? []).map((tg: any) => tg.name),
+        assignees: (t.assignees ?? []).map((a: any) => ({ id: String(a.id), name: a.username ?? a.email ?? 'Unknown' })),
         overdue: true,
       }))
 

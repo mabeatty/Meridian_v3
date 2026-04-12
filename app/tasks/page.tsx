@@ -34,6 +34,9 @@ function TasksTab() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ title: '', notes: '', priority: 3, due_date: '' })
+  const [filters, setFilters] = useState<{ list: string; priority: string; due: string; assignee: string }>({
+    list: '', priority: '', due: '', assignee: ''
+  })
 
   useEffect(() => { loadTasks() }, [])
 
@@ -150,8 +153,29 @@ function TasksTab() {
     loadTasks()
   }
 
-  const overdue = tasks.filter(t => t.due_date && t.due_date < Date.now())
-  const upcoming = tasks.filter(t => !t.due_date || t.due_date >= Date.now())
+  const now = Date.now()
+  const weekEnd = now + 7 * 24 * 60 * 60 * 1000
+  const monthEnd = now + 30 * 24 * 60 * 60 * 1000
+
+  const filteredTasks = tasks.filter(t => {
+    if (filters.list && t.list_name !== filters.list) return false
+    if (filters.priority && String(t.priority) !== filters.priority) return false
+    if (filters.due) {
+      if (filters.due === 'overdue' && !(t.due_date && t.due_date < now)) return false
+      if (filters.due === 'week' && !(t.due_date && t.due_date >= now && t.due_date <= weekEnd)) return false
+      if (filters.due === 'month' && !(t.due_date && t.due_date >= now && t.due_date <= monthEnd)) return false
+      if (filters.due === 'none' && t.due_date) return false
+    }
+    if (filters.assignee && !t.assignees?.some((a: any) => a.name === filters.assignee)) return false
+    return true
+  })
+
+  const overdue = filteredTasks.filter(t => t.due_date && t.due_date < now)
+  const upcoming = filteredTasks.filter(t => !t.due_date || t.due_date >= now)
+
+  const allLists = Array.from(new Set(tasks.map((t: any) => t.list_name).filter(Boolean))) as string[]
+  const allAssignees = Array.from(new Set(tasks.flatMap((t: any) => (t.assignees ?? []).map((a: any) => a.name)).filter(Boolean))) as string[]
+  const activeFilterCount = Object.values(filters).filter(Boolean).length
 
   return (
     <div className="flex flex-col gap-5">
@@ -164,6 +188,79 @@ function TasksTab() {
         <button onClick={openAdd} className="btn-primary flex items-center gap-1.5">
           <Plus size={13} /> Add task
         </button>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* List filter */}
+        {allLists.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {allLists.map(l => (
+              <button key={l} onClick={() => setFilters(f => ({ ...f, list: f.list === l ? '' : l }))}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                  filters.list === l
+                    ? 'bg-accent-blue/10 border-accent-blue/30 text-accent-blue'
+                    : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
+                }`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Divider */}
+        {allLists.length > 0 && <div className="w-px h-4 bg-border" />}
+
+        {/* Priority filter */}
+        {[{ v: '1', l: 'Urgent' }, { v: '2', l: 'High' }, { v: '3', l: 'Normal' }, { v: '4', l: 'Low' }].map(p => (
+          <button key={p.v} onClick={() => setFilters(f => ({ ...f, priority: f.priority === p.v ? '' : p.v }))}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+              filters.priority === p.v
+                ? 'bg-accent-amber/10 border-accent-amber/30 text-accent-amber'
+                : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
+            }`}>
+            {p.l}
+          </button>
+        ))}
+
+        <div className="w-px h-4 bg-border" />
+
+        {/* Due filter */}
+        {[{ v: 'overdue', l: 'Overdue' }, { v: 'week', l: 'This week' }, { v: 'month', l: 'This month' }, { v: 'none', l: 'No due date' }].map(d => (
+          <button key={d.v} onClick={() => setFilters(f => ({ ...f, due: f.due === d.v ? '' : d.v }))}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+              filters.due === d.v
+                ? 'bg-accent-purple/10 border-accent-purple/30 text-accent-purple'
+                : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
+            }`}>
+            {d.l}
+          </button>
+        ))}
+
+        {/* Assignee filter */}
+        {allAssignees.length > 0 && (
+          <>
+            <div className="w-px h-4 bg-border" />
+            {allAssignees.map(a => (
+              <button key={a} onClick={() => setFilters(f => ({ ...f, assignee: f.assignee === a ? '' : a }))}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                  filters.assignee === a
+                    ? 'bg-accent/10 border-accent/30 text-accent'
+                    : 'bg-surface-2 border-border text-text-tertiary hover:text-text-secondary hover:border-border-strong'
+                }`}>
+                {a}
+              </button>
+            ))}
+          </>
+        )}
+
+        {/* Clear filters */}
+        {activeFilterCount > 0 && (
+          <button onClick={() => setFilters({ list: '', priority: '', due: '', assignee: '' })}
+            className="text-[11px] px-2.5 py-1 rounded-full border border-border text-text-dim hover:text-text-secondary transition-colors ml-1">
+            Clear ({activeFilterCount})
+          </button>
+        )}
       </div>
 
       {showAdd && (
