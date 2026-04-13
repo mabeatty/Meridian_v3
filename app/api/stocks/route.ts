@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
   const holdings = (positions ?? []).map((pos: any) => {
     const price = prices[pos.ticker] ?? { price: 0, change: 0, changePct: 0 }
     const currentValue = pos.shares * price.price
-    const totalCost = pos.shares * (pos.cost_basis ?? 0)
+    const totalCost = pos.cost_basis ?? 0  // cost_basis = total dollars paid
     const gainLoss = currentValue - totalCost
     const gainLossPct = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0
     return {

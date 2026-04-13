@@ -521,7 +521,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
           {showAdd && (
             <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #242424', background: '#4e4e4e', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                {[['Ticker', 'ticker', 'NVDA'], ['Shares', 'shares', '0'], ['Cost basis', 'cost_basis', '0.00']].map(([label, key, ph]) => (
+                {[['Ticker', 'ticker', 'NVDA'], ['Shares', 'shares', '0'], ['Total paid ($)', 'cost_basis', '0.00']].map(([label, key, ph]) => (
                   <div key={key}><div style={labelStyle}>{label}</div>
                     <input value={(addForm as any)[key]} placeholder={ph}
                       onChange={e => setAddForm(p => ({ ...p, [key]: e.target.value }))}
@@ -633,7 +633,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                 <input type="number" value={editForm.shares} onChange={e => setEditForm(p => ({ ...p, shares: e.target.value }))} style={inputStyle} />
               </div>
               <div>
-                <div style={labelStyle}>Cost basis (per share)</div>
+                <div style={labelStyle}>Cost basis (total paid)</div>
                 <input type="number" value={editForm.cost_basis} onChange={e => setEditForm(p => ({ ...p, cost_basis: e.target.value }))} style={inputStyle} />
               </div>
               <div>
