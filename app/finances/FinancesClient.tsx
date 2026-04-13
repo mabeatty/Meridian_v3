@@ -467,8 +467,19 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
     onDataLoad(res)
   }
 
+  const [warChestSaved, setWarChestSaved] = useState(false)
+
   async function saveWarChest() {
-    await fetch('/api/stocks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'war_chest', war_chest: parseFloat(warChestInput) }) })
+    const res = await fetch('/api/stocks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'war_chest', war_chest: parseFloat(warChestInput) || 0 }) })
+    const json = await res.json()
+    if (res.ok && json.success) {
+      setWarChestSaved(true)
+      setTimeout(() => setWarChestSaved(false), 2000)
+      const fresh = await fetch('/api/stocks').then(r => r.json())
+      onDataLoad(fresh)
+    } else {
+      alert('Error saving war chest: ' + (json.error ?? res.status))
+    }
   }
 
   if (!data) return null
@@ -528,7 +539,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '0.5px solid #242424' }}>
-                {['Ticker', 'Bucket', 'Price', 'Value', 'P&L', 'Day', ''].map(h => (
+                {['Ticker', 'Thesis', 'Price', 'Value', 'Unrealized G/L', 'Day', ''].map(h => (
                   <th key={h} style={{ padding: '8px 12px', textAlign: h === '' ? 'center' : 'left', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>{h}</th>
                 ))}
               </tr>
@@ -540,12 +551,17 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   onClick={() => { setEditPosition(h); setEditForm({ shares: h.shares.toString(), cost_basis: h.costBasis.toString(), bucket: h.bucket, dip_trigger: h.dipTrigger?.toString() ?? '', target_allocation: h.targetAllocation?.toString() ?? '' }) }}>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket}</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket ?? '—'}</span>
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    {h.shares > 0 ? <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtPrice(h.gainLoss)}</div> : <span style={{ color: '#303030' }}>—</span>}
+                    {h.shares > 0 && h.costBasis > 0 ? (
+                      <div>
+                        <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtPrice(h.gainLoss)}</div>
+                        <div style={{ fontFamily: 'DM Mono, monospace', color: '#909090', fontSize: '10px' }}>{h.gainLossPct.toFixed(1)}%</div>
+                      </div>
+                    ) : <span style={{ color: '#686868' }}>—</span>}
                   </td>
                   <td style={{ padding: '9px 12px' }}>
                     <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
@@ -570,21 +586,29 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
           <div style={{ padding: '12px 16px', borderTop: '0.5px solid #242424', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <div style={labelStyle}>War chest</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '12px', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>$</span>
-                <input value={warChestInput} onChange={e => setWarChestInput(e.target.value)} onBlur={saveWarChest} style={{ ...inputStyle, width: '120px' }} />
+                <input value={warChestInput} onChange={e => setWarChestInput(e.target.value)} style={{ ...inputStyle, width: '110px' }} />
+                <button onClick={saveWarChest} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#f0f0f0', color: '#3a3a3a', border: 'none', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}>Save</button>
               </div>
+              <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', marginTop: '4px', color: warChestSaved ? '#3ddc84' : '#909090' }}>{warChestSaved ? 'Saved ✓' : data.warChest > 0 ? `Current: ${fmtPrice(data.warChest)}` : ''}</div>
             </div>
             <div>
               <div style={labelStyle}>Dip triggers</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {data.holdings?.filter((h: any) => h.dipTrigger).length === 0 && (
+                  <span style={{ fontSize: '11px', color: '#909090', fontFamily: 'DM Mono, monospace' }}>Set dip triggers by editing a position</span>
+                )}
                 {data.holdings?.filter((h: any) => h.dipTrigger).map((h: any) => (
                   <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</span>
-                    <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', padding: '1px 6px', borderRadius: '4px',
-                      color: h.atDip ? '#a32d2d' : '#1a7a3c', background: h.atDip ? '#fcebeb' : '#eaf3de' }}>
-                      {fmtPrice(h.currentPrice)} {h.atDip ? '🔴 BUY' : '✓'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#909090' }}>trigger {fmtPrice(h.dipTrigger)}</span>
+                      <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', padding: '1px 6px', borderRadius: '4px',
+                        color: h.atDip ? '#a32d2d' : '#1a7a3c', background: h.atDip ? '#fcebeb' : '#eaf3de' }}>
+                        now {fmtPrice(h.currentPrice)} {h.atDip ? '· BUY' : '· ok'}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -604,10 +628,25 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
               <button onClick={() => setEditPosition(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0c0c0', fontSize: '20px', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {[['Shares', 'shares'], ['Cost basis', 'cost_basis'], ['Dip trigger ($)', 'dip_trigger'], ['Target alloc (%)', 'target_allocation']].map(([label, key]) => (
-                <div key={key}><div style={labelStyle}>{label}</div>
-                  <input type="number" value={(editForm as any)[key]} onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))} style={inputStyle} /></div>
-              ))}
+              <div>
+                <div style={labelStyle}>Shares</div>
+                <input type="number" value={editForm.shares} onChange={e => setEditForm(p => ({ ...p, shares: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <div style={labelStyle}>Cost basis (per share)</div>
+                <input type="number" value={editForm.cost_basis} onChange={e => setEditForm(p => ({ ...p, cost_basis: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <div style={labelStyle}>Thesis</div>
+                <select value={editForm.bucket} onChange={e => setEditForm(p => ({ ...p, bucket: e.target.value }))}
+                  style={{ ...inputStyle, cursor: 'pointer' }}>
+                  {BUCKETS.map((b: string) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={labelStyle}>Dip trigger ($)</div>
+                <input type="number" value={editForm.dip_trigger} onChange={e => setEditForm(p => ({ ...p, dip_trigger: e.target.value }))} style={inputStyle} placeholder="e.g. 150.00" />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={savePosition} style={{ flex: 1, fontSize: '13px', padding: '8px', borderRadius: '8px', background: '#f0f0f0', color: '#686868', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Save</button>
