@@ -44,7 +44,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
       borderRight: '1px solid #525252',
     }}>
       {/* Logo */}
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid #525252' }}>
+      <div style={{ padding: '22px 20px', borderBottom: '1px solid #525252' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
           <span style={{
             fontSize: '15px',
