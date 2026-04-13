@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// ─── Curated high-quality financial RSS feeds ─────────────────
-const MARKET_FEEDS = [
-  { name: 'Reuters Business', url: 'https://feeds.reuters.com/reuters/businessNews' },
-  { name: 'Reuters Markets', url: 'https://feeds.reuters.com/reuters/UKmarkets' },
-  { name: 'Financial Times', url: 'https://www.ft.com/rss/home' },
-  { name: 'WSJ Markets', url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories' },
-  { name: 'MarketWatch', url: 'https://feeds.marketwatch.com/marketwatch/topstories' },
-  { name: 'Barrons', url: 'https://www.barrons.com/xml/rss/3_7514.xml' },
-  { name: 'Seeking Alpha', url: 'https://seekingalpha.com/market_currents.xml' },
-  { name: 'Bloomberg Markets', url: 'https://feeds.bloomberg.com/markets/news.rss' },
-  { name: 'CNBC Top News', url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html' },
-  { name: 'The Economist', url: 'https://www.economist.com/finance-and-economics/rss.xml' },
-]
-
-function parseRSS(xml: string, feedName: string): any[] {
+function parseRSS(xml: string, feed: any): any[] {
   const items: any[] = []
   const matches = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g))
   for (const m of matches) {
@@ -23,77 +9,83 @@ function parseRSS(xml: string, feedName: string): any[] {
     const title = item.match(/<title><!\[CDATA\[(.*?)\]\]>/)?.[1] || item.match(/<title>(.*?)<\/title>/)?.[1] || ''
     const link = item.match(/<link>(.*?)<\/link>/)?.[1] || item.match(/<guid>(https?:\/\/[^<]+)<\/guid>/)?.[1] || ''
     const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
-    const description = item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]>/)?.[1] || item.match(/<description>([\s\S]*?)<\/description>/)?.[1] || ''
     if (!title || !link) continue
     items.push({
       id: Buffer.from(link).toString('base64').slice(0, 16),
       title: title.replace(/<[^>]+>/g, '').trim(),
       link: link.trim(),
-      source: feedName,
+      source: feed.name,
       pubDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-      description: description.replace(/<[^>]+>/g, '').trim().slice(0, 200),
       type: 'feed',
     })
   }
   return items
 }
 
-// Check if an article is relevant to any of the user's tickers
-function findMatchingTicker(title: string, description: string, tickers: string[]): string | null {
-  const text = (title + ' ' + description).toUpperCase()
-  // Also map common company names to tickers
-  const NAME_MAP: Record<string, string> = {
-    'NVIDIA': 'NVDA', 'BROADCOM': 'AVGO', 'AMAZON': 'AMZN', 'GOOGLE': 'GOOGL',
-    'ALPHABET': 'GOOGL', 'VISTRA': 'VST', 'EXXON': 'XOM', 'CHEVRON': 'CVX',
-    'CONSTELLATION ENERGY': 'CEG', 'IRIDIUM': 'IRDM', 'KNIFE RIVER': 'KNF',
-  }
-  // Check ticker symbols first (word boundary match)
-  for (const ticker of tickers) {
-    const regex = new RegExp(`\\b${ticker}\\b`, 'i')
-    if (regex.test(text)) return ticker
-  }
-  // Check company names
-  for (const [name, ticker] of Object.entries(NAME_MAP)) {
-    if (tickers.includes(ticker) && text.includes(name)) return ticker
-  }
-  return null
-}
+async function fetchAlphaVantageNews(tickers: string[]): Promise<any[]> {
+  const apiKey = process.env.ALPHAVANTAGE_API_KEY
+  if (!apiKey || !tickers.length) return []
 
-async function fetchMarketNews(tickers: string[]): Promise<any[]> {
-  if (!tickers.length) return []
+  // AlphaVantage supports up to 50 tickers in one call
+  const tickerStr = tickers.join(',')
 
-  const results = await Promise.allSettled(
-    MARKET_FEEDS.map(async feed => {
-      const r = await fetch(feed.url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Meridian/1.0)' },
-        signal: AbortSignal.timeout(6000),
-      })
-      const xml = await r.text()
-      return parseRSS(xml, feed.name)
-    })
-  )
+  try {
+    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${tickerStr}&limit=50&sort=LATEST&apikey=${apiKey}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    const data = await res.json()
 
-  const allItems: any[] = []
-  for (const r of results) {
-    if (r.status === 'fulfilled') allItems.push(...r.value)
-  }
-
-  // Filter to only articles mentioning user's tickers or company names
-  const tickerItems: any[] = []
-  const seen = new Set<string>()
-
-  for (const item of allItems) {
-    if (seen.has(item.id)) continue
-    seen.add(item.id)
-    const ticker = findMatchingTicker(item.title, item.description, tickers)
-    if (ticker) {
-      tickerItems.push({ ...item, ticker, type: 'market' })
+    if (!Array.isArray(data.feed)) {
+      console.error('AlphaVantage news error:', data)
+      return []
     }
-  }
 
-  return tickerItems
-    .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
-    .slice(0, 40)
+    const seen = new Set<string>()
+    const items: any[] = []
+
+    for (const a of data.feed) {
+      if (!a.title || !a.url) continue
+      if (seen.has(a.url)) continue
+      seen.add(a.url)
+
+      // Find which of our tickers this article is primarily about
+      const articleTickers = (a.ticker_sentiment ?? []).map((t: any) => t.ticker.toUpperCase())
+      const matchingTicker = tickers.find(t => articleTickers.includes(t))
+      if (!matchingTicker) continue
+
+      // Filter out low-quality sources
+      const source = (a.source ?? '').toLowerCase()
+      const blocked = ['yahoo', 'pr newswire', 'business wire', 'globe newswire', 'accesswire', 'benzinga']
+      if (blocked.some(b => source.includes(b))) continue
+
+      // Get sentiment score for this ticker
+      const sentimentEntry = (a.ticker_sentiment ?? []).find((t: any) => t.ticker.toUpperCase() === matchingTicker)
+      const sentiment = sentimentEntry?.ticker_sentiment_score ?? 0
+
+      items.push({
+        id: Buffer.from(a.url).toString('base64').slice(0, 16),
+        title: a.title.trim(),
+        link: a.url,
+        source: a.source ?? 'Unknown',
+        ticker: matchingTicker,
+        pubDate: a.time_published
+          ? new Date(
+              a.time_published.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6')
+            ).toISOString()
+          : new Date().toISOString(),
+        sentiment: parseFloat(sentiment).toFixed(2),
+        sentimentLabel: a.overall_sentiment_label ?? null,
+        type: 'market',
+      })
+    }
+
+    return items
+      .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
+      .slice(0, 40)
+
+  } catch (e) {
+    console.error('AlphaVantage news fetch error:', e)
+    return []
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -130,13 +122,13 @@ export async function GET(req: NextRequest) {
       })
       return { feed, xml: await r.text() }
     })),
-    fetchMarketNews(tickers),
+    fetchAlphaVantageNews(tickers),
   ])
 
   const feedItems: any[] = []
   for (const r of rssResults) {
     if (r.status !== 'fulfilled') continue
-    feedItems.push(...parseRSS(r.value.xml, r.value.feed.name))
+    feedItems.push(...parseRSS(r.value.xml, r.value.feed))
   }
   feedItems.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
 
@@ -152,16 +144,5 @@ export async function GET(req: NextRequest) {
     { onConflict: 'user_id,widget_key' }
   )
 
-  return NextResponse.json({ 
-    data, 
-    cached: false,
-    debug: {
-      tickers,
-      feedsConfigured: feeds.length,
-      feedsFetched: rssResults.filter(r => r.status === 'fulfilled').length,
-      feedsFailed: rssResults.filter(r => r.status === 'rejected').length,
-      rawFeedItems: feedItems.length,
-      marketItemsFound: marketItems.length,
-    }
-  })
+  return NextResponse.json({ data, cached: false })
 }

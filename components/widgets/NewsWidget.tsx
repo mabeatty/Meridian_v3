@@ -112,13 +112,22 @@ export function NewsWidget() {
                   <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors leading-snug">
                     {item.title}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
                       style={{ backgroundColor: tickerColor(item.ticker) + '22', color: tickerColor(item.ticker) }}
                     >
                       {item.ticker}
                     </span>
+                    {item.sentimentLabel && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
+                        item.sentimentLabel?.includes('Bullish') ? 'bg-accent/10 text-accent' :
+                        item.sentimentLabel?.includes('Bearish') ? 'bg-accent-red/10 text-accent-red' :
+                        'bg-surface-3 text-text-tertiary'
+                      }`}>
+                        {item.sentimentLabel}
+                      </span>
+                    )}
                     <span className="text-[10px] text-text-tertiary font-mono">{item.source}</span>
                     <span className="text-[10px] text-text-dim">
                       {formatDistanceToNow(new Date(item.pubDate), { addSuffix: true })}
