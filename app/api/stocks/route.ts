@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-async function fetchPrices(tickers: string[]): Promise<Record<string, { price: number; change: number; changePct: number }>> {
-  const apiKey = process.env.FINNHUB_API_KEY
+// ─── Polygon price fetch (snapshot = real-time quotes for multiple tickers) ───
+async function fetchPolygonPrices(tickers: string[]): Promise<Record<string, { price: number; change: number; changePct: number }>> {
+  const apiKey = process.env.POLYGON_API_KEY
+  if (!apiKey || !tickers.length) return {}
+
   const results: Record<string, { price: number; change: number; changePct: number }> = {}
-  await Promise.all(tickers.map(async ticker => {
-    try {
-      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`)
-      const data = await res.json()
-      // Only store if price is valid and > 0 — never cache a zero price
-      if (data.c && data.c > 0) {
-        results[ticker] = { price: data.c, change: data.d ?? 0, changePct: data.dp ?? 0 }
+
+  try {
+    const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(',')}&apiKey=${apiKey}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const data = await res.json()
+
+    if (data.status === 'OK' && Array.isArray(data.tickers)) {
+      for (const t of data.tickers) {
+        const price = t.day?.c ?? t.prevDay?.c ?? 0
+        const prevClose = t.prevDay?.c ?? 0
+        const change = price - prevClose
+        const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0
+        if (price > 0) {
+          results[t.ticker] = { price, change, changePct }
+        }
       }
-    } catch {
-      // leave ticker out of results so caller knows it failed
     }
-  }))
+  } catch (e) {
+    console.error('Polygon snapshot error:', e)
+  }
+
   return results
 }
 
@@ -60,10 +72,6 @@ export async function GET(req: NextRequest) {
     ? (Date.now() - new Date(validCache[0].updated_at).getTime()) / 1000 / 60
     : 999
 
-  // Determine which tickers need a live fetch:
-  // - always all tickers if refresh=true
-  // - tickers missing from valid cache
-  // - all tickers if cache is stale (>5 min)
   const tickersNeedingFetch = refresh
     ? tickers
     : cacheAge >= 5
@@ -77,11 +85,10 @@ export async function GET(req: NextRequest) {
     prices[ticker] = { price: p.current_price, change: p.daily_change, changePct: p.daily_change_pct }
   }
 
-  // Fetch live prices for any missing/stale tickers
+  // Fetch live prices for missing/stale tickers via Polygon
   if (tickersNeedingFetch.length > 0) {
-    const freshPrices = await fetchPrices(tickersNeedingFetch)
+    const freshPrices = await fetchPolygonPrices(tickersNeedingFetch)
 
-    // Write fresh prices to cache
     if (Object.keys(freshPrices).length > 0) {
       await supabase.from('stock_prices').upsert(
         Object.entries(freshPrices).map(([ticker, data]) => ({
@@ -94,18 +101,43 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Merge fresh into prices
     for (const [ticker, data] of Object.entries(freshPrices)) {
       prices[ticker] = data
     }
   }
 
+  // Fetch 30-day price history for sparklines from price_history table
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const { data: priceHistory } = await supabase
+    .from('price_history')
+    .select('ticker, date, close')
+    .in('ticker', tickers)
+    .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
+    .order('date', { ascending: true })
+
+  // Group history by ticker
+  const historyByTicker: Record<string, number[]> = {}
+  for (const row of priceHistory ?? []) {
+    if (!historyByTicker[row.ticker]) historyByTicker[row.ticker] = []
+    historyByTicker[row.ticker].push(row.close)
+  }
+
   const holdings = (positions ?? []).map((pos: any) => {
     const price = prices[pos.ticker] ?? { price: 0, change: 0, changePct: 0 }
     const currentValue = pos.shares * price.price
-    const totalCost = pos.cost_basis ?? 0  // cost_basis = total dollars paid
+    const totalCost = pos.cost_basis ?? 0
     const gainLoss = currentValue - totalCost
     const gainLossPct = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0
+
+    // Use real history if available, else fall back to flat line
+    const history = historyByTicker[pos.ticker]
+    const sparklineData = history && history.length >= 2
+      ? history
+      : price.price > 0
+        ? [price.price, price.price]
+        : []
+
     return {
       ticker: pos.ticker,
       bucket: pos.bucket ?? 'Other',
@@ -120,6 +152,7 @@ export async function GET(req: NextRequest) {
       dipTrigger: pos.dip_trigger ?? null,
       atDip: pos.dip_trigger ? price.price <= pos.dip_trigger : false,
       targetAllocation: pos.target_allocation ?? null,
+      sparkline: sparklineData,
     }
   })
 

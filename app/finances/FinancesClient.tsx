@@ -406,7 +406,7 @@ function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }:
               <div style={{ width: '48px', fontSize: '12px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0', flexShrink: 0 }}>{h.ticker}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Sparkline
-                  data={[h.currentPrice * 0.985, h.currentPrice * 0.988, h.currentPrice * 0.991, h.currentPrice * 0.987, h.currentPrice * 0.993, h.currentPrice * 0.996, h.currentPrice * 0.994, h.currentPrice * 0.998, h.currentPrice]}
+                  data={h.sparkline?.length >= 2 ? h.sparkline : [h.currentPrice, h.currentPrice]}
                   color={h.dailyChangePct >= 0 ? '#3ddc84' : '#ff6b6b'}
                 />
               </div>
