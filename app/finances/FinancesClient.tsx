@@ -400,19 +400,28 @@ function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }:
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
         {holdings.map((h: any, i: number) => (
-          <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: i < holdings.length - 1 ? '0.5px solid #242424' : 'none' }}>
-            <div style={{ width: '48px', fontSize: '12px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0', flexShrink: 0 }}>{h.ticker}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Sparkline
-                data={[h.currentPrice * 0.985, h.currentPrice * 0.988, h.currentPrice * 0.991, h.currentPrice * 0.987, h.currentPrice * 0.993, h.currentPrice * 0.996, h.currentPrice * 0.994, h.currentPrice * 0.998, h.currentPrice]}
-                color={h.dailyChangePct >= 0 ? '#3ddc84' : '#ff6b6b'}
-              />
+          <div key={h.ticker} style={{ display: 'flex', flexDirection: 'column', padding: '9px 0', borderBottom: i < holdings.length - 1 ? '0.5px solid #525252' : 'none', gap: '3px' }}>
+            {/* Top line: ticker, sparkline, price, % */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '48px', fontSize: '12px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0', flexShrink: 0 }}>{h.ticker}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Sparkline
+                  data={[h.currentPrice * 0.985, h.currentPrice * 0.988, h.currentPrice * 0.991, h.currentPrice * 0.987, h.currentPrice * 0.993, h.currentPrice * 0.996, h.currentPrice * 0.994, h.currentPrice * 0.998, h.currentPrice]}
+                  color={h.dailyChangePct >= 0 ? '#3ddc84' : '#ff6b6b'}
+                />
+              </div>
+              <div style={{ width: '64px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', textAlign: 'right', flexShrink: 0 }}>{fmtPrice(h.currentPrice)}</div>
+              <div style={{ width: '56px', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, textAlign: 'right', padding: '2px 6px', borderRadius: '4px', flexShrink: 0,
+                color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
+                background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
+                {fmtPct(h.dailyChangePct)}
+              </div>
             </div>
-            <div style={{ width: '64px', fontSize: '12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', textAlign: 'right', flexShrink: 0 }}>{fmtPrice(h.currentPrice)}</div>
-            <div style={{ width: '56px', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, textAlign: 'right', padding: '2px 6px', borderRadius: '4px', flexShrink: 0,
-              color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
-              background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
-              {fmtPct(h.dailyChangePct)}
+            {/* Bottom line: shares, cost basis, current value */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '56px' }}>
+              <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#909090' }}>{h.shares.toFixed(4)} sh</span>
+              <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#909090' }}>cost {fmtPrice(h.costBasis)}</span>
+              <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', color: '#909090' }}>val {h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</span>
             </div>
           </div>
         ))}
@@ -534,9 +543,9 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                     <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket}</span>
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
-                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtCompact(h.currentValue) : '—'}</td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    {h.shares > 0 ? <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtCompact(h.gainLoss)}</div> : <span style={{ color: '#303030' }}>—</span>}
+                    {h.shares > 0 ? <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtPrice(h.gainLoss)}</div> : <span style={{ color: '#303030' }}>—</span>}
                   </td>
                   <td style={{ padding: '9px 12px' }}>
                     <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
