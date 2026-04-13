@@ -11,17 +11,27 @@ async function getClickUpToken(supabase: any, userId: string): Promise<string | 
   return tokenRow?.access_token ?? process.env.CLICKUP_API_TOKEN ?? null
 }
 
-async function getClickUpMemberId(teams: any, userEmail: string): Promise<string | null> {
-  // Try to match by email first
-  const byEmail = teams.teams?.[0]?.members?.find(
-    (m: any) => m.user?.email === userEmail
-  )?.user?.id
-  if (byEmail) return String(byEmail)
-
-  // Fall back to CLICKUP_MEMBER_ID env var if set
-  if (process.env.CLICKUP_MEMBER_ID) return process.env.CLICKUP_MEMBER_ID
-
-  return null
+function mapTask(t: any, overdue = false) {
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.description ?? '',
+    status: t.status?.status ?? 'unknown',
+    priority: t.priority?.priority ? parseInt(t.priority.priority) : null,
+    due_date: t.due_date ? parseInt(t.due_date) : null,
+    due_date_formatted: t.due_date
+      ? new Date(parseInt(t.due_date)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : null,
+    list_name: t.list?.name ?? '',
+    folder_name: t.folder?.name ?? '',
+    url: t.url ?? null,
+    tags: (t.tags ?? []).map((tg: any) => tg.name),
+    assignees: (t.assignees ?? []).map((a: any) => ({
+      id: String(a.id),
+      name: a.username ?? a.email ?? 'Unknown',
+    })),
+    ...(overdue ? { overdue: true } : {}),
+  }
 }
 
 export async function GET() {
@@ -39,67 +49,29 @@ export async function GET() {
     const teamId = teams.teams?.[0]?.id ?? process.env.CLICKUP_TEAM_ID
     if (!teamId) return NextResponse.json({ error: 'No workspace', tasks: [] })
 
-    const memberId = await getClickUpMemberId(teams, user.email ?? '')
-
     const ninetyDaysOut = new Date()
     ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90)
 
-    const params = new URLSearchParams({
-      due_date_lt: ninetyDaysOut.getTime().toString(),
-      include_closed: 'false',
-      subtasks: 'true',
-      page: '0',
-    })
-    if (memberId && memberId !== 'undefined') params.append('assignees[]', memberId)
+    // Fetch ALL tasks in workspace — no assignee filter so all users/lists appear
+    const [upcomingRes, overdueRes] = await Promise.all([
+      fetch(
+        `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${ninetyDaysOut.getTime()}&include_closed=false&subtasks=true&page=0`,
+        { headers: h }
+      ).then(r => r.json()),
+      fetch(
+        `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${Date.now()}&include_closed=false&subtasks=true&page=0`,
+        { headers: h }
+      ).then(r => r.json()),
+    ])
 
-    const td = await fetch(
-      `https://api.clickup.com/api/v2/team/${teamId}/task?${params}`,
-      { headers: h }
-    ).then(r => r.json())
+    const upcomingTasks = (upcomingRes.tasks ?? []).map((t: any) => mapTask(t, false))
+    const upcomingIds = new Set(upcomingTasks.map((t: any) => t.id))
 
-    const tasks = (td.tasks ?? []).map((t: any) => ({
-      id: t.id,
-      name: t.name,
-      description: t.description ?? '',
-      status: t.status?.status ?? 'unknown',
-      priority: t.priority?.priority ? parseInt(t.priority.priority) : null,
-      due_date: t.due_date ? parseInt(t.due_date) : null,
-      due_date_formatted: t.due_date
-        ? new Date(parseInt(t.due_date)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        : null,
-      list_name: t.list?.name ?? '',
-      folder_name: t.folder?.name ?? '',
-      url: t.url ?? null,
-      tags: (t.tags ?? []).map((tg: any) => tg.name),
-      assignees: (t.assignees ?? []).map((a: any) => ({ id: String(a.id), name: a.username ?? a.email ?? 'Unknown' })),
-    }))
+    const overdueTasks = (overdueRes.tasks ?? [])
+      .filter((t: any) => !upcomingIds.has(t.id))
+      .map((t: any) => mapTask(t, true))
 
-    const overdueTd = await fetch(
-      `https://api.clickup.com/api/v2/team/${teamId}/task?due_date_lt=${Date.now()}&include_closed=false&subtasks=true&page=0${memberId ? `&assignees[]=${memberId}` : ''}`,
-      { headers: h }
-    ).then(r => r.json())
-
-    const overdueTasks = (overdueTd.tasks ?? [])
-      .filter((t: any) => !tasks.find((existing: any) => existing.id === t.id))
-      .map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        description: t.description ?? '',
-        status: t.status?.status ?? 'unknown',
-        priority: t.priority?.priority ? parseInt(t.priority.priority) : null,
-        due_date: t.due_date ? parseInt(t.due_date) : null,
-        due_date_formatted: t.due_date
-          ? new Date(parseInt(t.due_date)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-          : null,
-        list_name: t.list?.name ?? '',
-        folder_name: t.folder?.name ?? '',
-        url: t.url ?? null,
-        tags: (t.tags ?? []).map((tg: any) => tg.name),
-        assignees: (t.assignees ?? []).map((a: any) => ({ id: String(a.id), name: a.username ?? a.email ?? 'Unknown' })),
-        overdue: true,
-      }))
-
-    return NextResponse.json({ tasks: [...overdueTasks, ...tasks] })
+    return NextResponse.json({ tasks: [...overdueTasks, ...upcomingTasks] })
   } catch (e: any) {
     return NextResponse.json({ error: e.message, tasks: [] }, { status: 500 })
   }
