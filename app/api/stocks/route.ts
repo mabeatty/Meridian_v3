@@ -8,9 +8,12 @@ async function fetchPrices(tickers: string[]): Promise<Record<string, { price: n
     try {
       const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`)
       const data = await res.json()
-      results[ticker] = { price: data.c ?? 0, change: data.d ?? 0, changePct: data.dp ?? 0 }
+      // Only store if price is valid and > 0 — never cache a zero price
+      if (data.c && data.c > 0) {
+        results[ticker] = { price: data.c, change: data.d ?? 0, changePct: data.dp ?? 0 }
+      }
     } catch {
-      results[ticker] = { price: 0, change: 0, changePct: 0 }
+      // leave ticker out of results so caller knows it failed
     }
   }))
   return results
@@ -23,7 +26,6 @@ export async function GET(req: NextRequest) {
 
   const refresh = new URL(req.url).searchParams.get('refresh') === 'true'
 
-  // Get user's positions (source of truth for which tickers exist)
   const { data: positions } = await supabase
     .from('stock_positions')
     .select('*')
@@ -31,7 +33,6 @@ export async function GET(req: NextRequest) {
 
   const tickers = (positions ?? []).map((p: any) => p.ticker)
 
-  // Get war chest
   const { data: warChest } = await supabase
     .from('war_chest')
     .select('*')
@@ -45,36 +46,60 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Check price cache
+  // Read cached prices — filter out any with price = 0 (invalid)
   const { data: cachedPrices } = await supabase
     .from('stock_prices')
     .select('*')
     .in('ticker', tickers)
 
-  const cacheAge = cachedPrices?.[0]?.updated_at
-    ? (Date.now() - new Date(cachedPrices[0].updated_at).getTime()) / 1000 / 60
+  const validCache = (cachedPrices ?? []).filter((p: any) => p.current_price > 0)
+  const cachedMap: Record<string, any> = {}
+  for (const p of validCache) cachedMap[p.ticker] = p
+
+  const cacheAge = validCache[0]?.updated_at
+    ? (Date.now() - new Date(validCache[0].updated_at).getTime()) / 1000 / 60
     : 999
 
-  let prices: Record<string, { price: number; change: number; changePct: number }> = {}
+  // Determine which tickers need a live fetch:
+  // - always all tickers if refresh=true
+  // - tickers missing from valid cache
+  // - all tickers if cache is stale (>5 min)
+  const tickersNeedingFetch = refresh
+    ? tickers
+    : cacheAge >= 5
+      ? tickers
+      : tickers.filter(t => !cachedMap[t])
 
-  if (!refresh && cacheAge < 5 && cachedPrices?.length === tickers.length) {
-    for (const p of cachedPrices) {
-      prices[p.ticker] = { price: p.current_price, change: p.daily_change, changePct: p.daily_change_pct }
-    }
-  } else {
-    prices = await fetchPrices(tickers)
-    await supabase.from('stock_prices').upsert(
-      Object.entries(prices).map(([ticker, data]) => ({
-        ticker,
-        current_price: data.price,
-        daily_change: data.change,
-        daily_change_pct: data.changePct,
-        updated_at: new Date().toISOString(),
-      }))
-    )
+  const prices: Record<string, { price: number; change: number; changePct: number }> = {}
+
+  // Seed with valid cache first
+  for (const [ticker, p] of Object.entries(cachedMap)) {
+    prices[ticker] = { price: p.current_price, change: p.daily_change, changePct: p.daily_change_pct }
   }
 
-  // Build holdings from positions
+  // Fetch live prices for any missing/stale tickers
+  if (tickersNeedingFetch.length > 0) {
+    const freshPrices = await fetchPrices(tickersNeedingFetch)
+
+    // Write fresh prices to cache
+    if (Object.keys(freshPrices).length > 0) {
+      await supabase.from('stock_prices').upsert(
+        Object.entries(freshPrices).map(([ticker, data]) => ({
+          ticker,
+          current_price: data.price,
+          daily_change: data.change,
+          daily_change_pct: data.changePct,
+          updated_at: new Date().toISOString(),
+        }))
+      )
+    }
+
+    // Merge fresh into prices
+    for (const [ticker, data] of Object.entries(freshPrices)) {
+      prices[ticker] = data
+    }
+  }
+
   const holdings = (positions ?? []).map((pos: any) => {
     const price = prices[pos.ticker] ?? { price: 0, change: 0, changePct: 0 }
     const currentValue = pos.shares * price.price
@@ -98,7 +123,6 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  // Calculate allocations by bucket
   const totalValue = holdings.reduce((s: number, h: any) => s + h.currentValue, 0)
   const bucketMap: Record<string, { value: number; target: number }> = {}
   for (const h of holdings) {
@@ -107,8 +131,7 @@ export async function GET(req: NextRequest) {
     if (h.targetAllocation) bucketMap[h.bucket].target = h.targetAllocation
   }
   const allocations = Object.entries(bucketMap).map(([bucket, { value, target }]) => ({
-    bucket,
-    target,
+    bucket, target,
     current: totalValue > 0 ? (value / totalValue) * 100 : 0,
     value,
   }))
@@ -119,7 +142,7 @@ export async function GET(req: NextRequest) {
     totalValue,
     totalGainLoss: holdings.reduce((s: number, h: any) => s + h.gainLoss, 0),
     warChest: warChest?.available_cash ?? 0,
-    pricesUpdatedAt: cachedPrices?.[0]?.updated_at ?? new Date().toISOString(),
+    pricesUpdatedAt: new Date().toISOString(),
   })
 }
 

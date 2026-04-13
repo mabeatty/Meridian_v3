@@ -335,7 +335,7 @@ function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }:
     setAddForm({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core' })
     setShowAdd(false)
     setAdding(false)
-    onPositionAdded()
+    onPositionAdded() // calls refreshStocks which already uses refresh=true
   }
 
   return (
