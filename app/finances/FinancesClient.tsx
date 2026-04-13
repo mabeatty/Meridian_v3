@@ -519,10 +519,17 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
         onClick={() => setExpanded(e => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>Portfolio detail</span>
-          <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0' }}>{fmtCompact(data.totalValue)}</span>
-          <span style={{ fontSize: '12px', fontFamily: 'DM Mono, monospace', color: data.totalGainLoss >= 0 ? '#3ddc84' : '#ff6b6b' }}>
-            {data.totalGainLoss >= 0 ? '+' : ''}{fmtCompact(data.totalGainLoss)} total
-          </span>
+          <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'DM Mono, monospace', color: '#f0f0f0' }}>{fmtPrice(data.totalValue)}</span>
+          {(() => {
+            const totalCost = data.holdings?.reduce((s: number, h: any) => s + (h.costBasis ?? 0), 0) ?? 0
+            const gl = data.totalGainLoss
+            const pct = totalCost > 0 ? (gl / totalCost) * 100 : 0
+            return (
+              <span style={{ fontSize: '12px', fontFamily: 'DM Mono, monospace', color: gl >= 0 ? '#3ddc84' : '#ff6b6b' }}>
+                {gl >= 0 ? '+' : ''}{fmtPrice(gl)} ({gl >= 0 ? '+' : ''}{pct.toFixed(2)}%)
+              </span>
+            )
+          })()}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={e => { e.stopPropagation(); onRefresh() }} disabled={refreshing}
