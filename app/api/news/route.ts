@@ -152,5 +152,16 @@ export async function GET(req: NextRequest) {
     { onConflict: 'user_id,widget_key' }
   )
 
-  return NextResponse.json({ data, cached: false })
+  return NextResponse.json({ 
+    data, 
+    cached: false,
+    debug: {
+      tickers,
+      feedsConfigured: feeds.length,
+      feedsFetched: rssResults.filter(r => r.status === 'fulfilled').length,
+      feedsFailed: rssResults.filter(r => r.status === 'rejected').length,
+      rawFeedItems: feedItems.length,
+      marketItemsFound: marketItems.length,
+    }
+  })
 }
