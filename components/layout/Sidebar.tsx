@@ -61,14 +61,7 @@ export function Sidebar({ userEmail }: { userEmail?: string | null }) {
             textTransform: 'uppercase',
           }}>OS</span>
         </div>
-        <p style={{
-          fontSize: '11px',
-          color: '#c0c0c0',
-          marginTop: '3px',
-          fontFamily: "'DM Mono', monospace",
-        }}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-        </p>
+
       </div>
 
       {/* Nav */}
