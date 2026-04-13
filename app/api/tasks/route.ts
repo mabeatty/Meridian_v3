@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,7 +14,8 @@ export async function GET() {
     .eq('widget_key', 'tasks')
     .single()
 
-  if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 0) {
+  const full = new URL(req.url).searchParams.get('full') === 'true'
+  if (!full && cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 2) {
     return NextResponse.json({ data: cached.data, cached: true })
   }
 
@@ -60,11 +61,12 @@ export async function GET() {
       const teams = await fetch('https://api.clickup.com/api/v2/team', { headers: h }).then(r => r.json())
       const teamId = teams.teams?.[0]?.id ?? process.env.CLICKUP_TEAM_ID
       if (teamId) {
-        const sevenDaysOut = new Date()
-        sevenDaysOut.setDate(sevenDaysOut.getDate() + 7)
-        sevenDaysOut.setHours(23, 59, 59, 999)
+        const full = new URL(req.url).searchParams.get('full') === 'true'
+        const cutoff = new Date()
+        cutoff.setDate(cutoff.getDate() + (full ? 90 : 7))
+        cutoff.setHours(23, 59, 59, 999)
 
-        const taskParams = new URLSearchParams({ due_date_lt: sevenDaysOut.getTime().toString(), include_closed: 'false', subtasks: 'true', page: '0' })
+        const taskParams = new URLSearchParams({ due_date_lt: cutoff.getTime().toString(), include_closed: 'false', subtasks: 'true', page: '0' })
         const url = `https://api.clickup.com/api/v2/team/${teamId}/task?${taskParams}`
 
         const td = await fetch(url, { headers: h }).then(r => r.json())

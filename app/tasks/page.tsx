@@ -43,7 +43,7 @@ function TasksTab() {
   async function loadTasks() {
     setLoading(true)
     const [tasksRes, archivedRes] = await Promise.all([
-      fetch('/api/tasks').then(r => r.json()),
+      fetch('/api/tasks?full=true').then(r => r.json()),
       fetch('/api/tasks/manual?archived=true').then(r => r.json()),
     ])
     setTasks(tasksRes.data?.tasks ?? [])
