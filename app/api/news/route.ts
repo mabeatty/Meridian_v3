@@ -26,8 +26,8 @@ async function fetchAlphaVantageNews(tickers: string[]): Promise<any[]> {
   const apiKey = process.env.ALPHAVANTAGE_API_KEY
   if (!apiKey || !tickers.length) return []
 
-  // AlphaVantage supports up to 50 tickers in one call
   const tickerStr = tickers.join(',')
+  const BLOCKED_SOURCES = ['pr newswire', 'business wire', 'accesswire', 'globenewswire', 'stock titan', 'tradingkey', 'ad hoc news', 'aastocks']
 
   try {
     const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${tickerStr}&limit=50&sort=LATEST&apikey=${apiKey}`
@@ -35,7 +35,7 @@ async function fetchAlphaVantageNews(tickers: string[]): Promise<any[]> {
     const data = await res.json()
 
     if (!Array.isArray(data.feed)) {
-      console.error('AlphaVantage news error:', data)
+      console.error('AlphaVantage unexpected response:', JSON.stringify(data).slice(0, 200))
       return []
     }
 
@@ -47,32 +47,41 @@ async function fetchAlphaVantageNews(tickers: string[]): Promise<any[]> {
       if (seen.has(a.url)) continue
       seen.add(a.url)
 
-      // Find which of our tickers this article is primarily about
-      const articleTickers = (a.ticker_sentiment ?? []).map((t: any) => t.ticker.toUpperCase())
-      const matchingTicker = tickers.find(t => articleTickers.includes(t))
-      if (!matchingTicker) continue
+      // Filter low-quality sources
+      const sourceLower = (a.source ?? '').toLowerCase()
+      if (BLOCKED_SOURCES.some(b => sourceLower.includes(b))) continue
 
-      // Filter out low-quality sources
-      const source = (a.source ?? '').toLowerCase()
-      const blocked = ['yahoo', 'pr newswire', 'business wire', 'globe newswire', 'accesswire', 'benzinga']
-      if (blocked.some(b => source.includes(b))) continue
+      // Find the highest-relevance ticker from our portfolio in this article
+      const matches = (a.ticker_sentiment ?? [])
+        .map((t: any) => ({
+          ticker: t.ticker.toUpperCase(),
+          relevance: parseFloat(t.relevance_score ?? '0'),
+          label: t.ticker_sentiment_label ?? '',
+        }))
+        .filter((t: any) => tickers.includes(t.ticker))
+        .sort((a: any, b: any) => b.relevance - a.relevance)
 
-      // Get sentiment score for this ticker
-      const sentimentEntry = (a.ticker_sentiment ?? []).find((t: any) => t.ticker.toUpperCase() === matchingTicker)
-      const sentiment = sentimentEntry?.ticker_sentiment_score ?? 0
+      if (!matches.length) continue
+
+      const best = matches[0]
+
+      // Parse AlphaVantage date format: 20260413T230842 -> ISO
+      let pubDate = new Date().toISOString()
+      if (a.time_published && a.time_published.length >= 15) {
+        const tp = a.time_published
+        pubDate = new Date(
+          `${tp.slice(0,4)}-${tp.slice(4,6)}-${tp.slice(6,8)}T${tp.slice(9,11)}:${tp.slice(11,13)}:${tp.slice(13,15)}`
+        ).toISOString()
+      }
 
       items.push({
         id: Buffer.from(a.url).toString('base64').slice(0, 16),
         title: a.title.trim(),
         link: a.url,
         source: a.source ?? 'Unknown',
-        ticker: matchingTicker,
-        pubDate: a.time_published
-          ? new Date(
-              a.time_published.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6')
-            ).toISOString()
-          : new Date().toISOString(),
-        sentiment: parseFloat(sentiment).toFixed(2),
+        ticker: best.ticker,
+        pubDate,
+        relevance: best.relevance,
         sentimentLabel: a.overall_sentiment_label ?? null,
         type: 'market',
       })
@@ -83,7 +92,7 @@ async function fetchAlphaVantageNews(tickers: string[]): Promise<any[]> {
       .slice(0, 40)
 
   } catch (e) {
-    console.error('AlphaVantage news fetch error:', e)
+    console.error('AlphaVantage fetch error:', e)
     return []
   }
 }
