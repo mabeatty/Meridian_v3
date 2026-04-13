@@ -14,7 +14,7 @@ export async function GET() {
     .eq('widget_key', 'tasks')
     .single()
 
-  if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 2) {
+  if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 0) {
     return NextResponse.json({ data: cached.data, cached: true })
   }
 
@@ -64,20 +64,12 @@ export async function GET() {
         sevenDaysOut.setDate(sevenDaysOut.getDate() + 7)
         sevenDaysOut.setHours(23, 59, 59, 999)
 
-        const memberByEmail = teams.teams?.[0]?.members?.find(
-          (m: any) => m.user?.email === user.email
-        )?.user?.id
-        const memberId = memberByEmail
-          ? String(memberByEmail)
-          : process.env.CLICKUP_MEMBER_ID ?? null
-
         const taskParams = new URLSearchParams({ due_date_lt: sevenDaysOut.getTime().toString(), include_closed: 'false', subtasks: 'true', page: '0' })
-        if (memberId && memberId !== 'undefined') taskParams.append('assignees[]', memberId)
         const url = `https://api.clickup.com/api/v2/team/${teamId}/task?${taskParams}`
 
         const td = await fetch(url, { headers: h }).then(r => r.json())
 
-        for (const t of (td.tasks ?? []).slice(0, 20)) {
+        for (const t of (td.tasks ?? [])) {
           allTasks.push({
             id: `clickup_${t.id}`,
             raw_id: t.id,
