@@ -468,6 +468,32 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
   }
 
   const [warChestSaved, setWarChestSaved] = useState(false)
+  const [sortCol, setSortCol] = useState<string>('')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortCol(col)
+      setSortDir(col === 'ticker' || col === 'thesis' ? 'asc' : 'desc')
+    }
+  }
+
+  function getSortedHoldings(holdings: any[]) {
+    if (!sortCol) return holdings
+    return [...holdings].sort((a, b) => {
+      let av: any, bv: any
+      if (sortCol === 'ticker')   { av = a.ticker; bv = b.ticker }
+      else if (sortCol === 'thesis')  { av = a.bucket ?? ''; bv = b.bucket ?? '' }
+      else if (sortCol === 'price')   { av = a.currentPrice; bv = b.currentPrice }
+      else if (sortCol === 'value')   { av = a.currentValue; bv = b.currentValue }
+      else if (sortCol === 'gl')      { av = a.gainLoss; bv = b.gainLoss }
+      else if (sortCol === 'day')     { av = a.dailyChangePct; bv = b.dailyChangePct }
+      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+      return sortDir === 'asc' ? av - bv : bv - av
+    })
+  }
 
   async function saveWarChest() {
     const res = await fetch('/api/stocks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'war_chest', war_chest: parseFloat(warChestInput) || 0 }) })
@@ -538,15 +564,30 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
           {/* Holdings table */}
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '0.5px solid #242424' }}>
-                {['Ticker', 'Thesis', 'Price', 'Value', 'Unrealized G/L', 'Day', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: h === '' ? 'center' : 'left', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0c0c0', fontFamily: 'DM Mono, monospace' }}>{h}</th>
+              <tr style={{ borderBottom: '0.5px solid #525252' }}>
+                {[
+                  { label: 'Ticker', col: 'ticker' },
+                  { label: 'Thesis', col: 'thesis' },
+                  { label: 'Price', col: 'price' },
+                  { label: 'Value', col: 'value' },
+                  { label: 'Unrealized G/L', col: 'gl' },
+                  { label: 'Day', col: 'day' },
+                  { label: '', col: '' },
+                ].map(({ label, col }) => (
+                  <th key={label} onClick={() => col && handleSort(col)}
+                    style={{ padding: '8px 12px', textAlign: label === '' ? 'center' : 'left', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'DM Mono, monospace', whiteSpace: 'nowrap',
+                      color: sortCol === col ? '#f0f0f0' : '#c0c0c0',
+                      cursor: col ? 'pointer' : 'default',
+                      userSelect: 'none',
+                    }}>
+                    {label}{col && sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : col ? ' ↕' : ''}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.holdings?.map((h: any, i: number) => (
-                <tr key={h.ticker} style={{ borderBottom: i < data.holdings.length - 1 ? '0.5px solid #1e1e1e' : 'none', cursor: 'pointer' }}
+              {getSortedHoldings(data.holdings ?? []).map((h: any, i: number) => (
+                <tr key={h.ticker} style={{ borderBottom: i < (data.holdings?.length ?? 0) - 1 ? '0.5px solid #4e4e4e' : 'none', cursor: 'pointer' }}
                   className="hover:bg-surface-3"
                   onClick={() => { setEditPosition(h); setEditForm({ shares: h.shares.toString(), cost_basis: h.costBasis.toString(), bucket: h.bucket, dip_trigger: h.dipTrigger?.toString() ?? '', target_allocation: h.targetAllocation?.toString() ?? '' }) }}>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</td>
