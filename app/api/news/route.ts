@@ -23,46 +23,56 @@ function parseRSS(xml: string, feed: any): any[] {
   return items
 }
 
-async function fetchStockNews(tickers: string[]): Promise<any[]> {
-  const apiKey = process.env.FINNHUB_API_KEY
+async function fetchPolygonNews(tickers: string[]): Promise<any[]> {
+  const apiKey = process.env.POLYGON_API_KEY
   if (!apiKey || !tickers.length) return []
-
-  const to = new Date().toISOString().split('T')[0]
-  const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const seen = new Set<string>()
   const items: any[] = []
 
+  // Fetch news for each ticker — Polygon filters by primary ticker
   await Promise.all(tickers.map(async ticker => {
     try {
-      const res = await fetch(
-        `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${apiKey}`,
-        { signal: AbortSignal.timeout(5000) }
-      )
-      const articles = await res.json()
-      if (!Array.isArray(articles)) return
+      const url = `https://api.polygon.io/v2/reference/news?ticker=${ticker}&limit=10&sort=published_utc&order=desc&apiKey=${apiKey}`
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+      const data = await res.json()
 
-      for (const a of articles.slice(0, 10)) {
-        if (!a.headline || !a.url) continue
-        // Deduplicate by URL
-        if (seen.has(a.url)) continue
-        seen.add(a.url)
+      if (!Array.isArray(data.results)) return
+
+      for (const a of data.results) {
+        if (!a.title || !a.article_url) continue
+        if (seen.has(a.article_url)) continue
+        seen.add(a.article_url)
+
+        // Only include articles where this ticker is a primary subject
+        const tickerTags = (a.tickers ?? []).map((t: string) => t.toUpperCase())
+        if (!tickerTags.includes(ticker.toUpperCase())) continue
+
+        // Filter out low-quality publishers
+        const source = a.publisher?.name ?? ''
+        const blocked = ['yahoo', 'benzinga sponsored', 'globe newswire', 'accesswire', 'pr newswire', 'business wire']
+        if (blocked.some(b => source.toLowerCase().includes(b))) continue
+
         items.push({
-          id: Buffer.from(a.url).toString('base64').slice(0, 16),
-          title: a.headline.trim(),
-          link: a.url,
-          source: a.source ?? ticker,
+          id: Buffer.from(a.article_url).toString('base64').slice(0, 16),
+          title: a.title.trim(),
+          link: a.article_url,
+          source: source,
           ticker,
-          pubDate: new Date(a.datetime * 1000).toISOString(),
+          pubDate: a.published_utc,
           type: 'market',
+          description: a.description ?? null,
+          tickers: tickerTags,
         })
       }
     } catch (e) {
-      console.error(`Finnhub news error for ${ticker}:`, e)
+      console.error(`Polygon news error for ${ticker}:`, e)
     }
   }))
 
-  return items.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()).slice(0, 30)
+  return items
+    .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
+    .slice(0, 40)
 }
 
 export async function GET(req: NextRequest) {
@@ -72,7 +82,7 @@ export async function GET(req: NextRequest) {
 
   const refresh = new URL(req.url).searchParams.get('refresh') === 'true'
 
-  // Check cache (60 min TTL)
+  // Check cache (30 min TTL for news)
   const { data: cached } = await supabase
     .from('widget_cache')
     .select('data,fetched_at')
@@ -80,7 +90,7 @@ export async function GET(req: NextRequest) {
     .eq('widget_key', 'news')
     .single()
 
-  if (!refresh && cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 60) {
+  if (!refresh && cached && (Date.now() - new Date(cached.fetched_at).getTime()) / 60000 < 30) {
     return NextResponse.json({ data: cached.data, cached: true })
   }
 
@@ -93,13 +103,13 @@ export async function GET(req: NextRequest) {
   const feeds = feedsRes.data ?? []
   const tickers = (positionsRes.data ?? []).map((p: any) => p.ticker)
 
-  // Fetch RSS and stock news in parallel
+  // Fetch RSS and Polygon news in parallel
   const [rssResults, marketItems] = await Promise.all([
     Promise.allSettled(feeds.map(async feed => {
       const r = await fetch(feed.url, { headers: { 'User-Agent': 'Meridian/1.0' }, signal: AbortSignal.timeout(5000) })
       return { feed, xml: await r.text() }
     })),
-    fetchStockNews(tickers),
+    fetchPolygonNews(tickers),
   ])
 
   // Parse RSS
@@ -114,7 +124,6 @@ export async function GET(req: NextRequest) {
     feedItems: feedItems.slice(0, 30),
     marketItems,
     fetched_at: new Date().toISOString(),
-    // Keep legacy items field for any other consumers
     items: feedItems.slice(0, 30),
   }
 
