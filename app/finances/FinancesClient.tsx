@@ -574,12 +574,12 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
               <tr style={{ borderBottom: '0.5px solid #525252' }}>
                 {[
                   { label: 'Ticker', col: 'ticker' },
-                  { label: 'Thesis', col: 'thesis' },
-                  { label: 'Price', col: 'price' },
+                  { label: 'Day', col: 'day' },
                   { label: 'Value', col: 'value' },
                   { label: 'Cost Basis', col: '' },
                   { label: 'Unrealized G/L', col: 'gl' },
-                  { label: 'Day', col: 'day' },
+                  { label: 'Price', col: 'price' },
+                  { label: 'Thesis', col: 'thesis' },
                   { label: '', col: '' },
                 ].map(({ label, col }) => (
                   <th key={label} onClick={() => col && handleSort(col)}
@@ -600,9 +600,12 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   onClick={() => { setEditPosition(h); setEditForm({ shares: h.shares.toString(), cost_basis: h.costBasis.toString(), bucket: h.bucket, dip_trigger: h.dipTrigger?.toString() ?? '', target_allocation: h.targetAllocation?.toString() ?? '' }) }}>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket ?? '—'}</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
+                      color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
+                      background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
+                      {fmtPct(h.dailyChangePct)}
+                    </span>
                   </td>
-                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{h.costBasis > 0 ? fmtPrice(h.costBasis) : '—'}</td>
                   <td style={{ padding: '9px 12px' }}>
@@ -613,12 +616,9 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                       </div>
                     ) : <span style={{ color: '#686868' }}>—</span>}
                   </td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
-                      color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
-                      background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
-                      {fmtPct(h.dailyChangePct)}
-                    </span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket ?? '—'}</span>
                   </td>
                   <td style={{ padding: '9px 12px', textAlign: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); deleteTicker(h.ticker) }}
