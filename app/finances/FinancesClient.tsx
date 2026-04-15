@@ -577,6 +577,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   { label: 'Thesis', col: 'thesis' },
                   { label: 'Price', col: 'price' },
                   { label: 'Value', col: 'value' },
+                  { label: 'Cost Basis', col: '' },
                   { label: 'Unrealized G/L', col: 'gl' },
                   { label: 'Day', col: 'day' },
                   { label: '', col: '' },
@@ -603,6 +604,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{h.costBasis > 0 ? fmtPrice(h.costBasis) : '—'}</td>
                   <td style={{ padding: '9px 12px' }}>
                     {h.shares > 0 && h.costBasis > 0 ? (
                       <div>
