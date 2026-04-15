@@ -600,11 +600,9 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   onClick={() => { setEditPosition(h); setEditForm({ shares: h.shares.toString(), cost_basis: h.costBasis.toString(), bucket: h.bucket, dip_trigger: h.dipTrigger?.toString() ?? '', target_allocation: h.targetAllocation?.toString() ?? '' }) }}>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontWeight: 500, color: '#f0f0f0' }}>{h.ticker}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    <span style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
-                      color: h.dailyChangePct >= 0 ? '#1a7a3c' : '#a32d2d',
-                      background: h.dailyChangePct >= 0 ? '#eaf3de' : '#fcebeb' }}>
+                    <div style={{ fontFamily: 'DM Mono, monospace', color: h.dailyChangePct >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>
                       {fmtPct(h.dailyChangePct)}
-                    </span>
+                    </div>
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{h.costBasis > 0 ? fmtPrice(h.costBasis) : '—'}</td>
