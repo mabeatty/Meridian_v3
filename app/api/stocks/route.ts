@@ -1,32 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// ─── Polygon price fetch (snapshot = real-time quotes for multiple tickers) ───
+// ─── Finnhub price fetch ─────────────────────────────────────
 async function fetchPolygonPrices(tickers: string[]): Promise<Record<string, { price: number; change: number; changePct: number }>> {
-  const apiKey = process.env.POLYGON_API_KEY
+  const apiKey = process.env.FINNHUB_API_KEY
   if (!apiKey || !tickers.length) return {}
 
   const results: Record<string, { price: number; change: number; changePct: number }> = {}
 
-  try {
-    const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(',')}&apiKey=${apiKey}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    const data = await res.json()
-
-    if (data.status === 'OK' && Array.isArray(data.tickers)) {
-      for (const t of data.tickers) {
-        const price = t.day?.c ?? t.prevDay?.c ?? 0
-        const prevClose = t.prevDay?.c ?? 0
-        const change = price - prevClose
-        const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0
-        if (price > 0) {
-          results[t.ticker] = { price, change, changePct }
-        }
+  await Promise.all(tickers.map(async ticker => {
+    try {
+      const res = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`,
+        { signal: AbortSignal.timeout(6000) }
+      )
+      const data = await res.json()
+      if (data.c && data.c > 0) {
+        results[ticker] = { price: data.c, change: data.d ?? 0, changePct: data.dp ?? 0 }
       }
+    } catch (e) {
+      console.error(`Finnhub price error for ${ticker}:`, e)
     }
-  } catch (e) {
-    console.error('Polygon snapshot error:', e)
-  }
+  }))
 
   return results
 }
