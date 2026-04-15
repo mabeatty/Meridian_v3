@@ -489,6 +489,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
       else if (sortCol === 'price')   { av = a.currentPrice; bv = b.currentPrice }
       else if (sortCol === 'value')   { av = a.currentValue; bv = b.currentValue }
       else if (sortCol === 'gl')      { av = a.gainLoss; bv = b.gainLoss }
+      else if (sortCol === 'glpct')   { av = a.gainLossPct; bv = b.gainLossPct }
       else if (sortCol === 'day')     { av = a.dailyChangePct; bv = b.dailyChangePct }
       if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
       return sortDir === 'asc' ? av - bv : bv - av
@@ -577,6 +578,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   { label: 'Day', col: 'day' },
                   { label: 'Value', col: 'value' },
                   { label: 'Cost Basis', col: '' },
+                  { label: '% G/L', col: 'glpct' },
                   { label: 'Unrealized G/L', col: 'gl' },
                   { label: 'Price', col: 'price' },
                   { label: 'Thesis', col: 'thesis' },
@@ -606,13 +608,11 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#f0f0f0', fontWeight: 500 }}>{h.currentValue > 0 ? fmtPrice(h.currentValue) : '—'}</td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{h.costBasis > 0 ? fmtPrice(h.costBasis) : '—'}</td>
-                  <td style={{ padding: '9px 12px' }}>
-                    {h.shares > 0 && h.costBasis > 0 ? (
-                      <div>
-                        <div style={{ fontFamily: 'DM Mono, monospace', color: h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b', fontSize: '12px' }}>{h.gainLoss >= 0 ? '+' : ''}{fmtPrice(h.gainLoss)}</div>
-                        <div style={{ fontFamily: 'DM Mono, monospace', color: '#909090', fontSize: '10px' }}>{h.gainLossPct.toFixed(1)}%</div>
-                      </div>
-                    ) : <span style={{ color: '#686868' }}>—</span>}
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: h.shares > 0 && h.costBasis > 0 ? (h.gainLossPct >= 0 ? '#3ddc84' : '#ff6b6b') : '#686868', fontSize: '12px' }}>
+                    {h.shares > 0 && h.costBasis > 0 ? `${h.gainLossPct >= 0 ? '+' : ''}${h.gainLossPct.toFixed(1)}%` : '—'}
+                  </td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: h.shares > 0 && h.costBasis > 0 ? (h.gainLoss >= 0 ? '#3ddc84' : '#ff6b6b') : '#686868', fontSize: '12px' }}>
+                    {h.shares > 0 && h.costBasis > 0 ? `${h.gainLoss >= 0 ? '+' : ''}${fmtPrice(h.gainLoss)}` : '—'}
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px' }}>
