@@ -296,6 +296,10 @@ function SpendingCategories() {
 
 // ─── Equity Performance ───────────────────────────────────────
 function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }: { holdings: any[]; refreshing: boolean; onRefresh: () => void; onPositionAdded: () => void }) {
+  const [theses, setTheses] = useState<any[]>([])
+  useEffect(() => {
+    fetch('/api/theses').then(r => r.json()).then(res => setTheses(res.data ?? []))
+  }, [])
   const dailyTotal = holdings.reduce((s, h) => s + (h.shares * h.dailyChange), 0)
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core' })
