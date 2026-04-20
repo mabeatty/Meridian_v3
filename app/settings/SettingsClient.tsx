@@ -19,6 +19,34 @@ export function SettingsClient({ profile, connected, feeds, invites: initialInvi
   const [newFeedUrl, setNewFeedUrl] = useState('')
   const [newFeedCat, setNewFeedCat] = useState('general')
   const [localFeeds, setLocalFeeds] = useState(feeds)
+  const [theses, setTheses] = useState<any[]>([])
+  const [newThesisName, setNewThesisName] = useState('')
+  const [newThesisColor, setNewThesisColor] = useState('#4d9fff')
+  const [addingThesis, setAddingThesis] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/theses').then(r => r.json()).then(res => setTheses(res.data ?? []))
+  }, [])
+
+  async function addThesis() {
+    if (!newThesisName.trim()) return
+    setAddingThesis(true)
+    const res = await fetch('/api/theses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newThesisName.trim(), color: newThesisColor }),
+    }).then(r => r.json())
+    if (res.data) {
+      setTheses(p => [...p, res.data])
+      setNewThesisName('')
+    }
+    setAddingThesis(false)
+  }
+
+  async function deleteThesis(id: string) {
+    await fetch(`/api/theses?id=${id}`, { method: 'DELETE' })
+    setTheses(p => p.filter(t => t.id !== id))
+  }
   const [invites, setInvites] = useState(initialInvites)
   const [inviteEmail, setInviteEmail] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
@@ -204,6 +232,39 @@ export function SettingsClient({ profile, connected, feeds, invites: initialInvi
             </select>
             <button onClick={addFeed} disabled={!newFeedName || !newFeedUrl} className="btn-primary px-3">
               <Plus size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Investment Theses */}
+      <div>
+        <h2 className="text-xs font-semibold tracking-[0.1em] uppercase text-text-tertiary mb-3">Investment Theses</h2>
+        <div className="bg-surface-2 border border-border rounded-lg p-4 flex flex-col gap-3">
+          {theses.map((t: any) => (
+            <div key={t.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              <div className="flex items-center gap-3">
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: t.color, flexShrink: 0 }} />
+                <span className="text-sm text-text-primary">{t.name}</span>
+              </div>
+              <button onClick={() => deleteThesis(t.id)}
+                className="text-[10px] text-accent-red hover:text-accent-red/80 transition-colors">
+                delete
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2 pt-1">
+            <input type="color" value={newThesisColor} onChange={e => setNewThesisColor(e.target.value)}
+              style={{ width: '32px', height: '32px', padding: '2px', borderRadius: '6px', border: '1px solid #525252', background: 'transparent', cursor: 'pointer' }} />
+            <input
+              value={newThesisName}
+              onChange={e => setNewThesisName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addThesis()}
+              placeholder="New thesis name..."
+              className="flex-1 bg-surface-3 border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-strong"
+            />
+            <button onClick={addThesis} disabled={addingThesis || !newThesisName.trim()} className="btn-primary px-3">
+              {addingThesis ? 'Adding...' : 'Add'}
             </button>
           </div>
         </div>

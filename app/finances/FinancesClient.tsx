@@ -301,7 +301,6 @@ function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }:
   const [addForm, setAddForm] = useState({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core' })
   const [adding, setAdding] = useState(false)
 
-  const BUCKETS = ['AI Core', 'Energy', 'Nuclear', 'Obscure', 'Other']
   const inputStyle = { background: '#4e4e4e', border: '0.5px solid #626262', borderRadius: '6px', padding: '5px 8px', fontSize: '12px', color: '#f0f0f0', outline: 'none', width: '100%', fontFamily: 'DM Mono, monospace' }
 
   async function addPosition() {
@@ -379,7 +378,7 @@ function EquityPerformance({ holdings, refreshing, onRefresh, onPositionAdded }:
               <div style={{ fontSize: '10px', color: '#909090', marginBottom: '3px', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bucket</div>
               <select value={addForm.bucket} onChange={e => setAddForm(p => ({ ...p, bucket: e.target.value }))}
                 style={{ ...inputStyle, cursor: 'pointer' }}>
-                {BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
+                {theses.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
               </select>
             </div>
           </div>
@@ -438,6 +437,32 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ ticker: '', shares: '', cost_basis: '', bucket: 'AI Core', dip_trigger: '', target_allocation: '' })
   const [warChestInput, setWarChestInput] = useState('0')
+  const [theses, setTheses] = useState<any[]>([])
+  const [newThesisName, setNewThesisName] = useState('')
+  const [showNewThesis, setShowNewThesis] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/theses').then(r => r.json()).then(res => {
+      const data = res.data ?? []
+      setTheses(data)
+    })
+  }, [])
+
+  async function addThesisInline() {
+    if (!newThesisName.trim()) return
+    const res = await fetch('/api/theses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newThesisName.trim(), color: '#888888' }),
+    }).then(r => r.json())
+    if (res.data) {
+      setTheses(p => [...p, res.data])
+      setAddForm(p => ({ ...p, bucket: res.data.name }))
+      setEditForm(p => ({ ...p, bucket: res.data.name }))
+      setNewThesisName('')
+      setShowNewThesis(false)
+    }
+  }
 
   useEffect(() => {
     if (data?.warChest !== undefined) setWarChestInput(data.warChest.toString())
@@ -565,7 +590,16 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={addPosition} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#686868', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Add</button>
                 <button onClick={() => setShowAdd(false)} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#c0c0c0', border: '0.5px solid #363636', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => setShowNewThesis(s => !s)} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'transparent', color: '#c0c0c0', border: '0.5px solid #363636', cursor: 'pointer' }}>+ New thesis</button>
               </div>
+              {showNewThesis && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input value={newThesisName} onChange={e => setNewThesisName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addThesisInline()}
+                    placeholder="Thesis name..." style={{ ...inputStyle, flex: 1 }} />
+                  <button onClick={addThesisInline} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#f0f0f0', color: '#686868', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Add thesis</button>
+                </div>
+              )}
             </div>
           )}
 
@@ -616,7 +650,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px' }}>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: (BUCKET_COLORS[h.bucket] ?? '#888') + '20', color: BUCKET_COLORS[h.bucket] ?? '#888' }}>{h.bucket ?? '—'}</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: ((theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') + '20'), color: (theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') }}>{h.bucket ?? '—'}</span>
                   </td>
                   <td style={{ padding: '9px 12px', textAlign: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); deleteTicker(h.ticker) }}
@@ -688,7 +722,7 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                 <div style={labelStyle}>Thesis</div>
                 <select value={editForm.bucket} onChange={e => setEditForm(p => ({ ...p, bucket: e.target.value }))}
                   style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {BUCKETS.map((b: string) => <option key={b} value={b}>{b}</option>)}
+                  {theses.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                 </select>
               </div>
               <div>
