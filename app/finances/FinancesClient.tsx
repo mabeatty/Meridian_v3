@@ -522,6 +522,8 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
       let av: any, bv: any
       if (sortCol === 'ticker')   { av = a.ticker; bv = b.ticker }
       else if (sortCol === 'thesis')  { av = a.bucket ?? ''; bv = b.bucket ?? '' }
+      else if (sortCol === 'pe')      { av = fundamentals[a.ticker]?.pe_trailing ?? 9999; bv = fundamentals[b.ticker]?.pe_trailing ?? 9999 }
+      else if (sortCol === 'fwdpe')   { av = fundamentals[a.ticker]?.pe_forward ?? 9999; bv = fundamentals[b.ticker]?.pe_forward ?? 9999 }
       else if (sortCol === 'price')   { av = a.currentPrice; bv = b.currentPrice }
       else if (sortCol === 'value')   { av = a.currentValue; bv = b.currentValue }
       else if (sortCol === 'gl')      { av = a.gainLoss; bv = b.gainLoss }
@@ -572,6 +574,11 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
           <button onClick={e => { e.stopPropagation(); onRefresh() }} disabled={refreshing}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0c0c0', padding: 0 }}>
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+          <button onClick={e => { e.stopPropagation(); fetch('/api/fundamentals?refresh=true').then(r => r.json()).then(res => { if (res.data) setFundamentals(res.data) }) }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505050', padding: 0, fontSize: '9px', fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em' }}
+            title="Refresh P/E data">
+            P/E
           </button>
           {expanded ? <ChevronUp size={14} color="#505050" /> : <ChevronDown size={14} color="#505050" />}
         </div>
@@ -626,9 +633,9 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   { label: '% G/L', col: 'glpct' },
                   { label: 'Unrealized G/L', col: 'gl' },
                   { label: 'Price', col: 'price' },
+                  { label: 'P/E', col: 'pe' },
+                  { label: 'Fwd P/E', col: 'fwdpe' },
                   { label: 'Thesis', col: 'thesis' },
-                  { label: 'P/E', col: '' },
-                  { label: 'Fwd P/E', col: '' },
                   { label: '', col: '' },
                 ].map(({ label, col }) => (
                   <th key={label} onClick={() => col && handleSort(col)}
@@ -662,14 +669,14 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                     {h.shares > 0 && h.costBasis > 0 ? `${h.gainLoss >= 0 ? '+' : ''}${fmtPrice(h.gainLoss)}` : '—'}
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
-                  <td style={{ padding: '9px 12px' }}>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: ((theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') + '20'), color: (theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') }}>{h.bucket ?? '—'}</span>
-                  </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', fontSize: '12px' }}>
                     {fundamentals[h.ticker]?.pe_trailing != null ? fundamentals[h.ticker].pe_trailing.toFixed(1) : '—'}
                   </td>
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', fontSize: '12px' }}>
                     {fundamentals[h.ticker]?.pe_forward != null ? fundamentals[h.ticker].pe_forward.toFixed(1) : '—'}
+                  </td>
+                  <td style={{ padding: '9px 12px' }}>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: ((theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') + '20'), color: (theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') }}>{h.bucket ?? '—'}</span>
                   </td>
                   <td style={{ padding: '9px 12px', textAlign: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); deleteTicker(h.ticker) }}
