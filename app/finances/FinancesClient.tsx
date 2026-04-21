@@ -497,6 +497,13 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
   }
 
   const [warChestSaved, setWarChestSaved] = useState(false)
+  const [fundamentals, setFundamentals] = useState<Record<string, any>>({})
+
+  useEffect(() => {
+    fetch('/api/fundamentals').then(r => r.json()).then(res => {
+      if (res.data) setFundamentals(res.data)
+    })
+  }, [])
   const [sortCol, setSortCol] = useState<string>('')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -620,6 +627,8 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   { label: 'Unrealized G/L', col: 'gl' },
                   { label: 'Price', col: 'price' },
                   { label: 'Thesis', col: 'thesis' },
+                  { label: 'P/E', col: '' },
+                  { label: 'Fwd P/E', col: '' },
                   { label: '', col: '' },
                 ].map(({ label, col }) => (
                   <th key={label} onClick={() => col && handleSort(col)}
@@ -655,6 +664,12 @@ function StockPortfolioDetail({ data, onDataLoad, refreshing, onRefresh }: { dat
                   <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0' }}>{fmtPrice(h.currentPrice)}</td>
                   <td style={{ padding: '9px 12px' }}>
                     <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: ((theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') + '20'), color: (theses.find((t:any) => t.name === h.bucket)?.color ?? BUCKET_COLORS[h.bucket] ?? '#888') }}>{h.bucket ?? '—'}</span>
+                  </td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', fontSize: '12px' }}>
+                    {fundamentals[h.ticker]?.pe_trailing != null ? fundamentals[h.ticker].pe_trailing.toFixed(1) : '—'}
+                  </td>
+                  <td style={{ padding: '9px 12px', fontFamily: 'DM Mono, monospace', color: '#c0c0c0', fontSize: '12px' }}>
+                    {fundamentals[h.ticker]?.pe_forward != null ? fundamentals[h.ticker].pe_forward.toFixed(1) : '—'}
                   </td>
                   <td style={{ padding: '9px 12px', textAlign: 'center' }}>
                     <button onClick={e => { e.stopPropagation(); deleteTicker(h.ticker) }}
