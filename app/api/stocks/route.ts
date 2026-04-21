@@ -63,15 +63,15 @@ export async function GET(req: NextRequest) {
   const cachedMap: Record<string, any> = {}
   for (const p of validCache) cachedMap[p.ticker] = p
 
-  const cacheAge = validCache[0]?.updated_at
-    ? (Date.now() - new Date(validCache[0].updated_at).getTime()) / 1000 / 60
-    : 999
-
+  // Check age per-ticker — refetch any ticker missing or older than 5 minutes
+  const now = Date.now()
   const tickersNeedingFetch = refresh
     ? tickers
-    : cacheAge >= 5
-      ? tickers
-      : tickers.filter(t => !cachedMap[t])
+    : tickers.filter(t => {
+        if (!cachedMap[t]) return true
+        const ageMinutes = (now - new Date(cachedMap[t].updated_at).getTime()) / 1000 / 60
+        return ageMinutes >= 5
+      })
 
   const prices: Record<string, { price: number; change: number; changePct: number }> = {}
 
